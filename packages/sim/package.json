@@ -1,0 +1,19 @@
+{
+  "name": "@pourline/sim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic Pour Line simulation. Shared by the browser client and the server-side replay validator.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "node --test 'test/**/*.test.ts'",
+    "typecheck": "tsc --noEmit",
+    "tune": "node tools/tuning-report.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0"
+  }
+}

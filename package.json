@@ -1,0 +1,20 @@
+{
+  "name": "arps-pour-line",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pour Line — 2D competition game for ARPS event activation",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@pourline/game",
+    "build": "npm run build --workspace=@pourline/game",
+    "preview": "npm run preview --workspace=@pourline/game",
+    "test": "npm run test --workspace=@pourline/sim",
+    "typecheck": "tsc -b --pretty"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

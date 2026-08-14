@@ -1,0 +1,20 @@
+{
+  "name": "@pourline/game",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pour Line — Phaser 3 client",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pourline/sim": "*",
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
