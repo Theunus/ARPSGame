@@ -7,6 +7,7 @@ interface ResultsData {
   state: SimState;
   log: InputEvent[];
   seed: number;
+  demo: boolean;
 }
 
 export class ResultsScene extends Phaser.Scene {
@@ -20,7 +21,21 @@ export class ResultsScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(c.bg);
 
     const font = 'system-ui, -apple-system, sans-serif';
-    let y = 150;
+    let y = 110;
+
+    if (data.demo) {
+      this.add
+        .text(WORLD_W / 2, y, 'DEMO RUN — NOT SAVED', {
+          fontFamily: font,
+          fontSize: '18px',
+          fontStyle: 'bold',
+          color: css(c.bg),
+          backgroundColor: css(c.accent),
+          padding: { x: 12, y: 6 },
+        })
+        .setOrigin(0.5);
+      y += 60;
+    }
 
     this.add
       .text(WORLD_W / 2, y, 'POUR COMPLETE', { fontFamily: font, fontSize: '30px', color: css(c.textDim) })
@@ -54,7 +69,7 @@ export class ResultsScene extends Phaser.Scene {
     }
 
     this.drawReplayCheck(data, result.score, y + 30);
-    this.addPlayAgain();
+    this.addPlayAgain(data.demo);
   }
 
   /**
@@ -97,7 +112,7 @@ export class ResultsScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
   }
 
-  private addPlayAgain(): void {
+  private addPlayAgain(demo: boolean): void {
     const c = theme.colors;
     const font = 'system-ui, -apple-system, sans-serif';
     const y = WORLD_H - 130;
@@ -109,17 +124,20 @@ export class ResultsScene extends Phaser.Scene {
       .text(WORLD_W / 2, y, 'POUR AGAIN', { fontFamily: font, fontSize: '32px', color: css(c.bg) })
       .setOrigin(0.5);
 
-    // Attempts are unlimited here on purpose. The three-attempt limit is enforced
-    // server-side against a normalised email — never in the client, where it
-    // would be one devtools call away from meaningless.
+    // Attempts are unlimited here on purpose. The three-attempt limit will be
+    // enforced server-side against a normalised email — never in the client,
+    // where it would be one devtools call away from meaningless. Demo mode
+    // gets its own honest caption rather than implying a limit that, for this
+    // device, does not apply.
     this.add
-      .text(WORLD_W / 2, y + 68, 'attempt limits are enforced server-side', {
-        fontFamily: font,
-        fontSize: '18px',
-        color: css(c.textDim),
-      })
+      .text(
+        WORLD_W / 2,
+        y + 68,
+        demo ? 'demo mode — unlimited replays, never saved' : 'attempt limits are enforced server-side',
+        { fontFamily: font, fontSize: '18px', color: css(c.textDim) },
+      )
       .setOrigin(0.5);
 
-    button.on('pointerup', () => this.scene.start('Play', {}));
+    button.on('pointerup', () => this.scene.start('Play', { demo }));
   }
 }

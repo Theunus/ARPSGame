@@ -24,6 +24,7 @@ Week 1 of a 2–6 week build. **The game is playable end to end.**
 | ✅ | Server-side replay verification — proven at 4 ms per run |
 | ✅ | Phaser client: full loop, scoring, strikes, difficulty ramp |
 | ✅ | Tuning harness with synthetic players |
+| ✅ | Staff/demo showcase mode — unlimited plays, never saved |
 | ⬜ | Registration, POPIA consent, Supabase schema, Edge Functions |
 | ⬜ | Service worker, offline submission queue, play tokens |
 | ⬜ | Admin page, big-screen leaderboard |
@@ -52,6 +53,30 @@ the pour feels right.
 | `npm test` | Simulation tests — **the load-bearing ones** |
 | `npm run typecheck` | Typecheck both workspaces |
 | `npm run tune --workspace=@pourline/sim` | Difficulty and score distribution report |
+
+---
+
+## Showcasing the game (staff/demo mode)
+
+For demoing to a passer-by or in a sales meeting without spending a real attendee's
+attempt. Set `VITE_STAFF_CODE` in `apps/game/.env.local` (copy from
+[`.env.example`](apps/game/.env.example); gitignored, never commit the real value),
+then on any device visit:
+
+```
+<site>/?staff=<the code>
+```
+
+That device now plays with unlimited attempts and every run is clearly marked
+**DEMO — not saved**, in-game and on the results screen. Visit `<site>/?staff=off`
+to hand the device back to normal. In dev builds only, the code `dev-demo` works
+without any `.env` file — it does not exist in a production build.
+
+This is a client-side labelling convenience, not a security boundary — the real
+3-attempt limit and leaderboard don't exist yet either (see the status table
+above). The intended server-side contract, so this doesn't need retrofitting when
+they land, is in
+[the design record](artifacts/grill-me/PourLine-Grill-Me-4.md#the-arps-staffdemo-account).
 
 ---
 

@@ -225,6 +225,22 @@ I would recommend theirs, and it is worth the extra setup friction.
 Whatever they know: is there a dedicated stand connection, or is it shared hall wifi? The
 game is built to survive a bad network either way, but it is useful to know what to expect.
 
+### 4.5 🟡 Who holds the staff/demo code
+
+The game has a separate showcase mode — a staff member visits a link once on their own
+device to unlock unlimited plays that never touch the leaderboard, for demoing the game to
+a passer-by or in a sales meeting without spending a real attendee's attempt. Covered in
+full in [the design record](artifacts/grill-me/PourLine-Grill-Me-4.md#the-arps-staffdemo-account).
+
+I need:
+- Who at ARPS should receive the code (treat it like a shared password, not something to
+  post in a group chat that outlives the event)
+- Confirmation it should be rotated after the event, so a leaked code from this event
+  doesn't work at the next one
+
+Nothing here touches personal data or the competition record, so this is a low-priority
+item — just needs an answer before the code is generated and handed over.
+
 ---
 
 ## 5. Event logistics
@@ -288,6 +304,7 @@ the T&Cs promise about notification.
 | 4.2 | Cloud account ownership decided | 🟠 | ☐ |
 | 4.3 | Stand screen details | 🟡 | ☐ |
 | 4.4 | Venue connectivity | 🟡 | ☐ |
+| 4.5 | Who holds the staff/demo code | 🟡 | ☐ |
 | 5.1 | Event date, times, timezone | 🔴 | ☐ |
 | 5.2 | Printed materials deadline | 🔴 | ☐ |
 | 5.3 | Expected attendance | 🟡 | ☐ |

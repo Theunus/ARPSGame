@@ -17,6 +17,7 @@ verification concentrated at the top of the leaderboard where the prize actually
 | Phone number | **Optional, clearly marked** |
 | Anti-cheat | **Deterministic replay validation + live final for the top finalists** |
 | Which attempt counts | **Best single run** |
+| Staff/demo access | **Separate credential, unlimited attempts, never reaches the leaderboard** |
 
 ## Enforcing three attempts
 
@@ -137,8 +138,65 @@ run** and **grant an extra attempt**, both written to `admin_audit` with the act
 Discretionary, staff-only, logged. Without it there is no recourse and you will be arguing
 with a customer; with it unlogged, there is no defence if someone later questions the result.
 
+## The ARPS staff/demo account
+
+ARPS needs to be able to showcase the game — at the stand, to a passer-by, in a sales
+meeting — without spending a real attendee's attempt and without a demo run ever
+contaminating the leaderboard or the prize.
+
+### What exists today (client-side, built)
+
+`apps/game/src/demo.ts`. A staff member visits `<site>/?staff=<code>` once on their own
+device; the code is checked against a build-time secret (`VITE_STAFF_CODE`), and if it
+matches, a flag is written to that browser's `localStorage`. From then on:
+
+- Every run is tagged `demo: true`, threaded through `PlayScene` → `ResultsScene` alongside
+  the seed and input log.
+- The game visibly marks itself — **"DEMO MODE — SCORE NOT SAVED"** during play, **"DEMO
+  RUN — NOT SAVED"** on the results screen — so nobody watching mistakes a showcase run for
+  a real entry, and so a staff member's phone can't be mistaken for a competitive one if
+  handed to someone else.
+- `?staff=off` clears the flag, to hand a demo device back to normal.
+
+**This is explicitly a labelling boundary, not a security boundary.** The whole reason
+`packages/sim` is deterministic and every score gets replayed server-side (above) is that
+nothing client-asserted can be trusted for anything that matters. A `demo: true` sent by the
+page is exactly that kind of client assertion — trivially spoofable by anyone with dev
+tools. Today that costs nothing, because there is no backend yet: every run, demo or not,
+already goes unsaved. The flag exists now so the seam is in the right place before the
+backend exists, the same reasoning that put determinism in from day one rather than
+retrofitting it.
+
+### What the backend must do (not yet built)
+
+When registration and `submit-run` land, the demo account has to be authenticated
+server-side, the same way a real player's token is:
+
+- A **separate demo credential** — not a row in `players`, not an email — issued to ARPS.
+  Whatever form it takes (a static secret held by the Edge Function, a distinct token type),
+  it must be checked independently of anything the client claims.
+- **Exempt from the per-email attempt count.** The demo credential doesn't consume, and
+  isn't limited by, the three-attempt check.
+- **Structurally excluded from the leaderboard**, not filtered out after the fact. The
+  safest shape: demo runs are validated (still worth replaying — a broken demo looks bad in
+  front of a client) but written with `status = 'demo'`, and every leaderboard and
+  live-final query filters on `status = 'verified'` explicitly rather than merely excluding
+  `'demo'`. An allowlist of what counts, not a blocklist of what doesn't — the same
+  precautionary shape as the public-leaderboard view in branch 5, which is incapable of
+  returning contact details rather than merely filtered to not return them.
+- The demo credential should **not** appear in `players`, so it can never be swept up by the
+  30-day anonymisation job (branch 5) or exported in the leads CSV.
+
+### Distributing the code
+
+`VITE_STAFF_CODE` is a Cloudflare Pages build-time environment variable, not something in
+the repo. Whoever holds it can demo the game at will; treat it like a shared password —
+rotate it after the event, and don't put it in a group chat that outlives the event.
+
 ## Open items
 
 - Prize value drives how much of this is proportionate. If the prize is significant, revisit
   stand-issued codes. Tracked in [CLIENT-REQUIREMENTS.md](../../CLIENT-REQUIREMENTS.md).
 - How many finalists play the live final — follows from the prize structure.
+- The demo credential's exact server-side shape (see above) should be decided alongside the
+  rest of the token/`submit-run` design, not bolted on afterward.

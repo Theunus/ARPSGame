@@ -1,8 +1,13 @@
 import Phaser from 'phaser';
 import { WORLD_H, WORLD_W } from '@pourline/sim';
+import { consumeStaffCodeFromUrl } from './demo.ts';
 import { PlayScene } from './scenes/PlayScene.ts';
 import { ResultsScene } from './scenes/ResultsScene.ts';
 import { theme } from './theme/theme.ts';
+
+// Must run before the game boots: PlayScene reads demo-mode state from
+// localStorage in its own init(), so the flag has to be settled first.
+consumeStaffCodeFromUrl();
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,

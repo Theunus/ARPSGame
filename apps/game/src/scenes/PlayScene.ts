@@ -14,6 +14,7 @@ import {
   toleranceFor,
 } from '@pourline/sim';
 import type { InputEvent, Mould, SimState } from '@pourline/sim';
+import { isDemoMode } from '../demo.ts';
 import { css, theme } from '../theme/theme.ts';
 
 /** Largest catch-up allowed after a stall, so a backgrounded tab can't fast-forward a run. */
@@ -24,6 +25,8 @@ export class PlayScene extends Phaser.Scene {
   private log!: InputEvent[];
   private cursor!: { i: number };
   private seed = 1;
+  /** Snapshot at run start so a mid-run localStorage change can't retag a run. */
+  private demo = false;
 
   private acc = 0;
   /** Frames of deliberate freeze after a spill. Sells the mistake. */
@@ -41,10 +44,11 @@ export class PlayScene extends Phaser.Scene {
     super('Play');
   }
 
-  init(data: { seed?: number }): void {
+  init(data: { seed?: number; demo?: boolean }): void {
     // In the real game this seed arrives inside a signed, server-issued play
     // token. Until then it is random per run, which is fine for tuning.
     this.seed = data.seed ?? Math.floor(Math.random() * 2 ** 31);
+    this.demo = data.demo ?? isDemoMode();
     this.state = createState(this.seed);
     this.log = [];
     this.cursor = { i: 0 };
@@ -90,6 +94,22 @@ export class PlayScene extends Phaser.Scene {
         color: css(c.textDim),
       })
       .setOrigin(0.5, 0);
+
+    // Visible on every frame of a demo run, not just the results screen — a
+    // showcase run must never be mistaken for a real competitive entry by
+    // whoever is watching over the demoing staff member's shoulder.
+    if (this.demo) {
+      this.add
+        .text(WORLD_W / 2, 8, 'DEMO MODE — SCORE NOT SAVED', {
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontSize: '16px',
+          fontStyle: 'bold',
+          color: css(c.bg),
+          backgroundColor: css(c.accent),
+          padding: { x: 10, y: 5 },
+        })
+        .setOrigin(0.5, 0);
+    }
 
     // Multiple pointers, because people rest a second thumb on the screen and
     // a naive pointerup handler would read that as a release.
@@ -165,7 +185,12 @@ export class PlayScene extends Phaser.Scene {
 
     if (this.state.over) {
       this.time.delayedCall(600, () => {
-        this.scene.start('Results', { state: this.state, log: this.log, seed: this.seed });
+        this.scene.start('Results', {
+          state: this.state,
+          log: this.log,
+          seed: this.seed,
+          demo: this.demo,
+        });
       });
     }
   }
