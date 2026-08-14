@@ -33,6 +33,16 @@ export interface Theme {
     good: number;
     danger: number;
     accent: number;
+
+    /**
+     * Leaderboard rank badges (1st/2nd/3rd). Named separately from `accent`
+     * even though rankGold currently matches it — the two mean different
+     * things and may need to move independently once a real brand accent
+     * replaces this neutral one.
+     */
+    rankGold: number;
+    rankSilver: number;
+    rankBronze: number;
   };
 
   /** Placeholder mix labels. Replaced with real ARPS product names. */
@@ -72,6 +82,10 @@ export const neutralTheme: Theme = {
     good: 0x3ddc84,
     danger: 0xff5a3c,
     accent: 0xffc21a,
+
+    rankGold: 0xffc21a,
+    rankSilver: 0xc7ccd4,
+    rankBronze: 0xcd7f4a,
   },
 
   productNames: {
@@ -89,4 +103,12 @@ export const theme: Theme = neutralTheme;
 /** Phaser text styles want CSS colour strings, the draw API wants numbers. */
 export function css(color: number): string {
   return '#' + color.toString(16).padStart(6, '0');
+}
+
+/** Same conversion, with alpha — for CSS glows/flashes that need to fade. */
+export function cssRgba(color: number, alpha: number): string {
+  const r = (color >> 16) & 0xff;
+  const g = (color >> 8) & 0xff;
+  const b = color & 0xff;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }

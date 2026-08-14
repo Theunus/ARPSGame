@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#14161a" />
+    <title>Pour Line — Leaderboard</title>
+    <style>
+      /* Colour values are set as custom properties from theme.ts at runtime
+         (src/leaderboard/main.ts) — this file has no colour literals of its
+         own, same rule as the rest of the app. */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        display: flex;
+        flex-direction: column;
+        padding: clamp(20px, 3vw, 48px) clamp(24px, 4vw, 72px);
+        box-sizing: border-box;
+      }
+
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px 32px;
+        margin-bottom: clamp(16px, 2.4vw, 32px);
+      }
+
+      .titles {
+        display: flex;
+        align-items: baseline;
+        gap: 18px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(24px, 2.6vw, 36px);
+        letter-spacing: 0.06em;
+        font-weight: 800;
+      }
+
+      .subtitle {
+        font-size: clamp(14px, 1.4vw, 18px);
+        color: var(--text-dim);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: clamp(13px, 1.2vw, 16px);
+        color: var(--text-dim);
+      }
+
+      .status .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--good);
+        animation: pulse 2.2s ease-out infinite;
+      }
+
+      /* --good-glow / --good-glow-clear are the same theme.colors.good hue at
+         two alpha levels, computed in main.ts — not a literal here. */
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 var(--good-glow);
+        }
+        70% {
+          box-shadow: 0 0 0 10px var(--good-glow-clear);
+        }
+        100% {
+          box-shadow: 0 0 0 0 var(--good-glow-clear);
+        }
+      }
+
+      .board {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        border-radius: 16px;
+        background: var(--bg-accent);
+        border: 1px solid var(--ground-line);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      thead th {
+        position: sticky;
+        top: 0;
+        background: var(--bg-accent);
+        text-align: left;
+        font-size: clamp(12px, 1vw, 14px);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        font-weight: 600;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--ground-line);
+      }
+
+      th.num,
+      td.num {
+        text-align: right;
+      }
+
+      tbody tr {
+        border-bottom: 1px solid var(--ground-line);
+      }
+
+      tbody tr:last-child {
+        border-bottom: none;
+      }
+
+      tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.015);
+      }
+
+      td {
+        padding: clamp(10px, 1.4vw, 18px) 20px;
+        font-size: clamp(16px, 1.6vw, 22px);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .rank-cell {
+        display: flex;
+        align-items: center;
+      }
+
+      .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.1em;
+        height: 2.1em;
+        border-radius: 50%;
+        font-weight: 800;
+        font-size: 0.85em;
+        color: var(--bg);
+        background: var(--formwork-dim);
+      }
+
+      .rank-badge.gold {
+        background: var(--rank-gold);
+      }
+      .rank-badge.silver {
+        background: var(--rank-silver);
+      }
+      .rank-badge.bronze {
+        background: var(--rank-bronze);
+      }
+
+      .rank-plain {
+        padding-left: 0.55em;
+        color: var(--text-dim);
+        font-weight: 600;
+      }
+
+      .name-cell {
+        font-weight: 600;
+      }
+
+      .score-cell {
+        font-weight: 800;
+        font-size: clamp(18px, 1.9vw, 26px);
+      }
+
+      .combo-cell,
+      .moulds-cell {
+        color: var(--text-dim);
+      }
+
+      footer {
+        margin-top: clamp(12px, 1.6vw, 20px);
+        display: flex;
+        justify-content: space-between;
+        font-size: clamp(12px, 1vw, 14px);
+        color: var(--text-dim);
+      }
+
+      /* Entrance: rows stagger in on first paint so the board doesn't just
+         snap into existence — the one moment of "nice" a static table gets. */
+      tbody tr {
+        opacity: 0;
+        animation: rowIn 420ms ease-out forwards;
+      }
+
+      @keyframes rowIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Applied briefly to a row whose rank or score changed on a refresh.
+         --accent-flash is theme.colors.accent at low alpha, from main.ts. */
+      tr.changed {
+        animation: changedFlash 1100ms ease-out;
+      }
+
+      @keyframes changedFlash {
+        0% {
+          background: var(--accent-flash);
+        }
+        100% {
+          background: transparent;
+        }
+      }
+
+      .empty,
+      .skeleton-row {
+        padding: 40px 20px;
+        text-align: center;
+        color: var(--text-dim);
+        font-size: 18px;
+      }
+
+      .skeleton-row td {
+        padding: 18px 20px;
+      }
+
+      .skeleton-bar {
+        height: 1em;
+        border-radius: 6px;
+        background: linear-gradient(
+          90deg,
+          var(--formwork-dim) 25%,
+          var(--formwork) 37%,
+          var(--formwork-dim) 63%
+        );
+        background-size: 400% 100%;
+        animation: shimmer 1.6s ease-in-out infinite;
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0 50%;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .combo-cell,
+        .moulds-cell,
+        th.combo,
+        th.moulds {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="titles">
+        <h1 id="wordmark">POUR LINE</h1>
+        <span class="subtitle">Live Leaderboard</span>
+      </div>
+      <div class="status">
+        <span class="dot"></span>
+        <span id="updated-text">Loading…</span>
+        <span aria-hidden="true">·</span>
+        <span id="count-text"></span>
+      </div>
+    </header>
+
+    <div class="board">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col" style="width: 5.5em">Rank</th>
+            <th scope="col">Player</th>
+            <th scope="col" class="num">Score</th>
+            <th scope="col" class="num combo">Best combo</th>
+            <th scope="col" class="num moulds">Moulds</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <!-- populated by src/leaderboard/main.ts -->
+        </tbody>
+      </table>
+    </div>
+
+    <footer>
+      <span>Sample data — not a live competition result</span>
+      <span>Refreshes automatically</span>
+    </footer>
+
+    <script type="module" src="/src/leaderboard/main.ts"></script>
+  </body>
+</html>

@@ -94,6 +94,14 @@ This is the single biggest driver of a stand competition working. People play, s
 name go up, watch it get pushed down, and come back to use their remaining attempts. Without
 it the game is a private experience and the crowd never forms.
 
+**Built:** `apps/game/leaderboard.html`, a plain HTML/CSS page — not a Phaser scene, since a
+data table has no business on a canvas, and this needs to be a normal page a browser can sit
+on for hours unattended, not a game loop. Polls every 15s, top-3 get a rank badge, changed
+rows flash briefly on refresh so a crowd watching the screen notices a shakeup without the
+whole board re-animating every cycle. Reads sample rows today; the one thing left is pointing
+`fetchLeaderboard()` at the real `public_leaderboard` view once Supabase exists — the row
+shape it returns was designed to match that view exactly, so nothing else here changes.
+
 Requirements to confirm with the client: is there a screen, what resolution and orientation,
 and what drives it — a laptop with a browser is fine, and should be on **wired or tethered**
 connectivity rather than the venue wifi.

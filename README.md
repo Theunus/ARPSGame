@@ -25,9 +25,10 @@ Week 1 of a 2–6 week build. **The game is playable end to end.**
 | ✅ | Phaser client: full loop, scoring, strikes, difficulty ramp |
 | ✅ | Tuning harness with synthetic players |
 | ✅ | Staff/demo showcase mode — unlimited plays, never saved |
+| ✅ | Big-screen leaderboard page — sample data, real query is the only gap |
 | ⬜ | Registration, POPIA consent, Supabase schema, Edge Functions |
 | ⬜ | Service worker, offline submission queue, play tokens |
-| ⬜ | Admin page, big-screen leaderboard |
+| ⬜ | Admin page |
 | ⬜ | ARPS brand assets |
 
 ---
@@ -77,6 +78,27 @@ This is a client-side labelling convenience, not a security boundary — the rea
 above). The intended server-side contract, so this doesn't need retrofitting when
 they land, is in
 [the design record](artifacts/grill-me/PourLine-Grill-Me-4.md#the-arps-staffdemo-account).
+
+---
+
+## Leaderboard
+
+A separate page, not a Phaser scene — tables belong in the DOM, not on a canvas,
+and this is meant to run unattended on a laptop driving a TV at the stand (see
+[Grill-Me-6](artifacts/grill-me/PourLine-Grill-Me-6.md)), not inside the phone
+game.
+
+```bash
+npm run dev
+```
+
+then open `/leaderboard.html`. It polls a `fetchLeaderboard()` function every
+15s; today that function returns sample data from
+[`src/leaderboard/data.ts`](apps/game/src/leaderboard/data.ts). The row shape it
+returns already matches the `public_leaderboard` view designed in
+[Grill-Me-5](artifacts/grill-me/PourLine-Grill-Me-5.md#the-public-leaderboard) —
+first name plus last initial, score, nothing else — so swapping in the real
+Supabase query when the backend lands is a one-function change, not a rebuild.
 
 ---
 
