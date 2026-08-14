@@ -33,7 +33,7 @@ import {
   PERFECT_WINDOW_END,
   PERFECT_WINDOW_START,
   RAMP_FRAMES,
-  SCROLL_SPEED_END,
+  SCROLL_SPEED_PER_RAMP,
   SCROLL_SPEED_START,
   SPILL_MARGIN_SLOPE,
   SPILL_MARGIN_START,
@@ -71,8 +71,13 @@ function rampProgress(frame: number): number {
  * The same ramp, deliberately uncapped. Only the judging tolerance uses it, and
  * only because it must keep tightening past full difficulty — see the note in
  * config.ts. Clamping this would let an accurate player survive indefinitely.
+ *
+ * Scroll speed uses this too, not because tolerance and speed are related, but
+ * because both need the same "keep going forever" shape. A single unclamped
+ * ramp function serves both rather than inventing a second one that behaves
+ * identically.
  */
-function tolProgress(frame: number): number {
+function unboundedProgress(frame: number): number {
   const p = frame / RAMP_FRAMES;
   return p < 0 ? 0 : p;
 }
@@ -83,7 +88,7 @@ function tolProgress(frame: number): number {
  * there is no second copy of these numbers anywhere.
  */
 export function toleranceFor(target: number, flow: number, frame: number): Tolerance {
-  const tp = tolProgress(frame);
+  const tp = unboundedProgress(frame);
   const rp = rampProgress(frame);
 
   const spillFrac = Math.max(0, SPILL_MARGIN_START - SPILL_MARGIN_SLOPE * tp);
@@ -330,7 +335,9 @@ export function step(s: SimState): void {
   s.events.length = 0;
 
   const progress = rampProgress(s.frame);
-  const speed = lerp(SCROLL_SPEED_START, SCROLL_SPEED_END, progress);
+  // Unbounded on purpose — speed never plateaus, so a run only ends when the
+  // player runs out of skill, not when a timer does. See config.ts.
+  const speed = SCROLL_SPEED_START + SCROLL_SPEED_PER_RAMP * unboundedProgress(s.frame);
   const gap = lerp(GAP_START, GAP_END, progress);
   const mix = MIXES[s.mix];
 

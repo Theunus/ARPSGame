@@ -7,15 +7,19 @@
  * to catch, like a difficulty ramp that makes a mould literally unfillable.
  *
  * Targets, from artifacts/grill-me/PourLine-Grill-Me-2.md:
- *   - median run 35-45s, strong players capped near 90s
+ *   - median run 35-45s
  *   - scores in the thousands, well spread so ties at the top are rare
+ *   - speed climbs forever (Piano Tiles-style), so nothing here should show a
+ *     hard plateau in run length for the top tiers — see the wall table below
+ *     for what eventually ends even a flawless run
  */
 
 import {
   MIXES,
   MIX_SCHEDULE,
   MOULDS,
-  SCROLL_SPEED_END,
+  RAMP_FRAMES,
+  SCROLL_SPEED_PER_RAMP,
   SCROLL_SPEED_START,
   TICK_HZ,
 } from '../src/config.ts';
@@ -87,51 +91,75 @@ for (const tier of TIERS) {
   );
 }
 
-// A mould whose dwell time is shorter than its fill time is unwinnable, not hard.
-// This is the failure mode most likely to slip past playtesting, because it only
-// appears deep into a run that few testers reach.
+// Speed no longer has a ceiling, so every mould/mix pair becomes infeasible
+// *eventually* — dwell time (width / speed) keeps falling while fill time
+// (target / flow) stays fixed. That is by design: it is the wall a flawless
+// player eventually hits. The question worth asking isn't "is this ever
+// infeasible" (always, now) but "how long does it take to get there, and is the
+// mix still reachable when it does" — a mix that retired from the schedule
+// long before its wall arrives can never actually cause the problem.
 //
-// The check is schedule-aware: each mix is measured at the fastest scroll speed
-// it can actually be encountered at, not at the global maximum. Mortar never
-// meets a fast line, so judging it there would be a false alarm — and a tuning
-// tool that cries wolf gets ignored, which is worse than not having one.
-function lastProgressFor(mix: MixKind): number {
+// Solve dwell/fill = 1.1 for the time at which each pair crosses the line:
+//   width / (START + PER_RAMP * t/RAMP_SECONDS) = 1.1 * target / flow
+const RAMP_SECONDS = RAMP_FRAMES / TICK_HZ;
+
+function wallSeconds(width: number, target: number, flow: number): number {
+  const speedAtWall = (width * flow) / (1.1 * target);
+  return (RAMP_SECONDS * (speedAtWall - SCROLL_SPEED_START)) / SCROLL_SPEED_PER_RAMP;
+}
+
+/**
+ * Last moment a mix can still be picked, in seconds. A mix present in a
+ * schedule band with `until >= 1` is selectable forever, because ramp progress
+ * clamps at 1 and never leaves that final band — see rampProgress in simulate.ts.
+ */
+function retiresAt(mix: MixKind): number {
   let last = 0;
   for (const band of MIX_SCHEDULE) {
-    if (band.mixes.includes(mix)) last = Math.max(last, Math.min(band.until, 1));
+    if (band.mixes.includes(mix)) {
+      if (band.until >= 1) return Infinity;
+      last = Math.max(last, band.until);
+    }
   }
-  return last;
+  return last * RAMP_SECONDS;
 }
 
-function speedAt(progress: number): number {
-  return SCROLL_SPEED_START + (SCROLL_SPEED_END - SCROLL_SPEED_START) * Math.min(progress, 1);
-}
+const LATE_WALL_S = 200; // above this the wall is irrelevant — no run gets there
 
-console.log('\nFeasibility — dwell vs fill at the fastest speed each mix can appear at:\n');
+// Pacing floor for mixes that never retire (general, screed). They have no
+// schedule escape, so their wall must simply land well past where real runs
+// end — comfortably beyond the top tier's p90 in the table above, so the wall
+// reads as "you broke the game" rather than "you got an unfair strike at your
+// normal death time".
+const PACING_FLOOR_S = 100;
+
+console.log('\nThe wall — seconds of survival before dwell time drops below fill time:\n');
 console.log(
   'mould         |  ' + Object.keys(MIXES).map((m) => m.slice(0, 7).padStart(9)).join(''),
 );
-console.log(
-  '              |  ' +
-    Object.keys(MIXES)
-      .map((m) => `@${speedAt(lastProgressFor(m as MixKind)).toFixed(1)}`.padStart(9))
-      .join(''),
-);
 console.log('-'.repeat(84));
 
-let infeasible = 0;
+let problems = 0;
 for (const mould of Object.values(MOULDS)) {
   const cells = Object.values(MIXES).map((mix) => {
-    const dwell = mould.width / speedAt(lastProgressFor(mix.kind));
-    const ratio = dwell / (mould.target / mix.flow);
-    if (ratio < 1.1) infeasible++;
-    return `${ratio.toFixed(2)}x`.padStart(9);
+    const wall = wallSeconds(mould.width, mould.target, mix.flow);
+    const retires = retiresAt(mix.kind);
+
+    // A retiring mix is only a problem if the wall arrives before it retires —
+    // otherwise it is gone from the schedule long before it would matter. A
+    // non-retiring mix has no such escape, so it is judged against the pacing
+    // floor instead.
+    const bad = retires === Infinity ? wall < PACING_FLOOR_S : wall < retires;
+    if (bad) problems++;
+
+    if (retires !== Infinity && wall >= retires) return 'retires'.padStart(9);
+    return `${wall > LATE_WALL_S ? '>' + LATE_WALL_S : wall.toFixed(0) + 's'}${bad ? '!' : ''}`.padStart(9);
   });
   console.log(`${mould.kind.padEnd(13)} |  ${cells.join('')}`);
 }
 
 console.log(
-  infeasible > 0
-    ? `\n  ${infeasible} combination(s) below 1.1x — near-impossible, not merely hard. Retune.\n`
-    : '\n  Every mould stays fillable by every mix it can meet.\n',
+  problems > 0
+    ? `\n  ${problems} combination(s) marked '!' — either the wall arrives while a retiring mix\n  is still live, or a non-retiring mix (general, screed) walls before ${PACING_FLOOR_S}s.\n  Both are an unwinnable strike, not difficulty. Lower SCROLL_SPEED_PER_RAMP or\n  raise a mould's width.\n`
+    : `\n  Every retiring mix (mortar, high-strength) is gone from the schedule before\n  its wall. Every non-retiring mix (general, screed) walls past ${PACING_FLOOR_S}s —\n  only a flawless, very long run ever reaches it.\n`,
 );

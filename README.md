@@ -93,22 +93,28 @@ Current distribution across 200 seeds per skill tier:
 
 | Tier | Median score | Median run |
 |---|---|---|
-| Expert | 54,360 | 82.5s |
-| Good | 39,447 | 74.9s |
-| Average | 17,956 | 61.8s |
-| First run | 2,496 | 44.9s |
+| Expert | 51,685 | 81.8s |
+| Good | 37,765 | 74.8s |
+| Average | 15,173 | 60.6s |
+| First run | 2,289 | 43.9s |
 
-The report also checks that every mould stays **fillable** by every mix it can
-meet. A mould whose dwell time is shorter than its fill time is unwinnable rather
-than hard — the failure mode most likely to slip past playtesting, because it
-only appears deep into a run few testers reach.
+Scroll speed is **unbounded** — Piano Tiles-style, it keeps accelerating for as
+long as the player survives, rather than plateauing after a fixed ramp. What
+still ends most runs is the **closing tolerance**: the brim drops toward the
+target line while the minimum acceptable fill rises toward it, so even a player
+who never spills eventually runs out of room. Speed alone can't do that job —
+pouring slightly short costs no strike, so an accurate player would underfill
+forever if tolerance stayed fixed.
 
-Note what actually ends a run: not scroll speed, but the **closing tolerance**.
-The brim drops toward the target line while the minimum acceptable fill rises
-toward it. Speed alone cannot kill an accurate player — pouring slightly short
-never costs a strike, so they would simply underfill forever.
+Unbounded speed does eventually make a mould literally unfillable — dwell time
+drops below fill time. That's an intentional hard backstop, not a bug, but it
+has to land *late*: the report also prints "the wall", the point each mould/mix
+pair stops being fillable, and flags any combination that arrives too early. A
+wall that lands too soon converges every skill tier on the same unavoidable
+strike instead of testing precision — that's a real failure mode this project
+hit once already; see [`docs/TUNING.md`](docs/TUNING.md).
 
-These are a considered first pass, not final values. See [`docs/TUNING.md`](docs/TUNING.md).
+These are a considered first pass, not final values.
 
 ---
 

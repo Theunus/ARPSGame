@@ -9,45 +9,79 @@ npm run tune --workspace=@pourline/sim
 
 The harness is a sighting shot, not a verdict. It cannot tell you whether the
 pour *feels* good — only real thumbs can. What it does catch is the class of
-problem playtesting is too slow to find: a mould that has become unfillable, a
-ramp so flat the leaderboard is a lottery, or a change that quietly made expert
-runs unbounded.
+problem playtesting is too slow to find: a mould that goes unfillable too early,
+a ramp so flat the leaderboard is a lottery, a change that quietly makes expert
+runs unbounded, or — the failure mode below — a wall that arrives so early it
+erases the difference between skill tiers instead of testing it.
 
 ---
 
 ## How the difficulty actually works
 
-Three levers ramp over `RAMP_FRAMES` (60 seconds):
+Four levers, three of them ramping over `RAMP_FRAMES` (60 seconds) and then
+holding at full difficulty. One of them — scroll speed — never holds.
 
-1. **Scroll speed** — `SCROLL_SPEED_START` → `SCROLL_SPEED_END`. Less time to read
-   and react. Plateaus at full difficulty.
+1. **Scroll speed** — `SCROLL_SPEED_START` + `SCROLL_SPEED_PER_RAMP` per
+   `RAMP_FRAMES` survived. Deliberately **unbounded**, Piano-Tiles style: the
+   line keeps accelerating for as long as the player keeps not-losing, so
+   surviving is what makes the game hard rather than a fixed timer. See "The
+   wall", below, for what this means for a flawless run.
 2. **Perfect window** — `PERFECT_WINDOW_START` → `PERFECT_WINDOW_END`, defined in
    *frames of pour time*, not as a fraction of the mould. Human release precision
    is measured in frames, so this is the only way to keep a narrow column as fair
-   as a wide slab.
-3. **Tolerance** — `SPILL_MARGIN_*` and `MISS_FLOOR_*`. Deliberately **uncapped**.
+   as a wide slab. Plateaus at full difficulty.
+3. **Tolerance** — `SPILL_MARGIN_*` and `MISS_FLOOR_*`. Deliberately **uncapped**,
+   same shape as speed — see below.
+4. **Gap between moulds** — `GAP_START` → `GAP_END`. Plateaus; not pushed further
+   because a shrinking gap on top of ever-rising speed would eventually overlap
+   moulds. Acceleration alone already shortens the *time* between them.
 
-### Why the tolerance must keep closing
+### Why the tolerance must keep closing — and why speed alone can't replace it
 
-This is the non-obvious part, and the first version got it wrong.
+This is the non-obvious part, and the first version got it wrong twice.
 
 Strikes come from spills and misses. An accurate player never spills, and pouring
 slightly short is only an underfill, which costs points but not a strike. So at
-constant difficulty a precise player **plays forever** — the first tuning pass had
+*constant* difficulty a precise player plays forever — the very first pass had
 expert and average bots both hitting the five-minute safety cap.
 
-Raising the scroll speed does not fix it. To force a *miss* by speed alone the
-line would have to move so fast the mould cannot reach even 55% full, which
-happens far too late to be useful.
+Raising scroll speed alone doesn't fix that either. To force a *miss* by speed
+alone the line would have to move so fast the mould can't reach even 55% full,
+which happens far too late to be useful — and once speed is unbounded, that
+same effect becomes a different problem: a mould whose dwell time drops below
+its fill time is simply unfillable, a strike nobody could have avoided. Push
+speed hard enough on its own and every skill tier converges on that same
+physical wall instead of dying at their own precision limit — which flattens
+the leaderboard, exactly wrong for a competition.
 
-So the survivable window closes from both sides instead: the brim drops toward
-the target line while the minimum acceptable fill rises toward it. Any player with
-a fixed precision eventually runs out of room. The window reaches zero around 85
-seconds, which is the queue guarantee the event needs.
+So both levers do a job the other can't:
 
-**If you clamp `tolProgress`, runs become unbounded again.** There is a test for
-this — an idle run must end inside 25 seconds — but it will not catch the expert
-case. Watch the `max secs` column in the harness.
+- **Tolerance** (`SPILL_MARGIN_*` / `MISS_FLOOR_*`) closes the band a player must
+  hit, so a precise player still eventually runs out of room. This is what
+  separates skill tiers — it's *why* Expert outlasts Average.
+- **Speed** (`SCROLL_SPEED_PER_RAMP`) is the escalating pressure a Piano-Tiles
+  game needs, and the hard backstop for the rare player good enough to dodge
+  tolerance for a very long time.
+
+**If you clamp the tolerance ramp, runs become unbounded again for precise
+players.** There is a test for this — an idle run must end inside 25 seconds —
+but it won't catch the expert case. Watch the `max secs` column in the harness,
+and the wall table below.
+
+### The wall
+
+`npm run tune` prints the point at which each mould/mix pair stops being
+fillable at all — dwell time (`width / speed`) drops below fill time
+(`target / flow`). This is the ceiling speed puts under everything else.
+
+It only matters for **general purpose** and **screed** — mortar and
+high-strength retire from the mix schedule long before their wall could ever
+be reached. At the current tuning the wall for general sits at **~120–123s**
+and screed at **>200s**, both comfortably past the top tier's max observed run
+(~86s). That gap is the point: the wall should read as "you broke the game",
+not as an unfair strike at a normal death time. If you raise
+`SCROLL_SPEED_PER_RAMP`, re-check this table — the harness flags any
+combination that walls before its pacing floor.
 
 ---
 
@@ -57,15 +91,23 @@ From [the design record](../artifacts/grill-me/PourLine-Grill-Me-2.md):
 
 | | Target | Currently |
 |---|---|---|
-| Median run | 35–45s | 45s first-run, 62s average |
-| Expert cap | ~90s | 82–90s ✅ |
-| Score magnitude | Thousands, well spread | 2.5k–70k ✅ |
-| Ties at the top | Rare | 0–1 in the top 20 ✅ |
+| Median run | 35–45s | 44s first-run, 61s average |
+| Expert median / max | — | 82s / 86s ✅ |
+| Score magnitude | Thousands, well spread | 2.3k–66k ✅ |
+| Ties at the top | Rare | 0 in the top 20 ✅ |
+| Skill separation | Tiers should score visibly apart | 2.3k → 15k → 38k → 52k ✅ |
 
 The average tier running long is the known gap. Most event players will use all
 three attempts, so the *first* run is the one at target — and runs lengthening as
 someone improves is a reasonable reward. Worth confirming against real players
 before touching it.
+
+Skill separation is the number to watch most closely now that speed is
+unbounded: it's what collapsed to almost nothing during tuning when the wall
+first landed too early (Expert and Good converged on the same physical
+impossibility instead of dying at their own precision). If a future change
+brings tiers close together again, suspect the wall before anything else —
+check `npm run tune`'s wall table.
 
 ---
 
@@ -102,10 +144,12 @@ Two things to check:
 
 - **`height` is purely cosmetic.** It maps fill units to pixels and never enters
   the simulation. Change it freely for readability.
-- **Feasibility.** `width / scrollSpeed` (dwell) must comfortably exceed
-  `target / flow` (fill time) at the fastest speed the mix can be encountered at.
-  The harness checks this and prints a ratio; below 1.1× the mould is
-  near-impossible rather than hard.
+- **Feasibility.** Speed is unbounded now, so every mould/mix pair becomes
+  unfillable *eventually* — that's expected, see "The wall" above. What matters
+  is *when*: a mix that retires from the schedule (mortar, high-strength) must
+  retire before its wall; a mix that never retires (general, screed) must wall
+  well past the top tier's longest observed run. The harness checks both and
+  marks a genuine problem with `!`.
 
 Mixes are scheduled back-loaded on purpose: fast-flowing, long-tailed mixes arrive
 late so late game means maximum overshoot pressure, and slow mixes stay away from

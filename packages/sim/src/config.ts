@@ -37,13 +37,36 @@ export const MAX_STRIKES = 3;
 // Difficulty ramp
 // ---------------------------------------------------------------------------
 
-/** Frames to reach full difficulty. Expert runs then sit at max for their last stretch. */
+/**
+ * The reference period for every ramp below. Most ramps (mould mix, tolerance,
+ * perfect window) reach full difficulty at this point and hold. Scroll speed is
+ * the exception — see SCROLL_SPEED_PER_RAMP.
+ */
 export const RAMP_FRAMES = TICK_HZ * 60;
 
 export const SCROLL_SPEED_START = 1.8;
-export const SCROLL_SPEED_END = 2.7;
 
-/** Gap between moulds in px, shrinking as the run progresses. */
+/**
+ * Speed gained per RAMP_FRAMES survived, and deliberately **unbounded** — unlike
+ * every other ramp, this one never plateaus. The line keeps accelerating for as
+ * long as the player keeps not-losing, Piano-Tiles style, so surviving is what
+ * makes the game hard rather than a fixed timer.
+ *
+ * The natural ending this produces: acceleration eventually outruns the
+ * concrete. Once dwell time (mould width / speed) drops below fill time (target
+ * / flow), a mould literally cannot be filled and the strike is unavoidable.
+ * That wall is the intended finish line, but it must land only after a long
+ * run — `npm run tune` prints when it does. If it moves earlier than ~75s,
+ * players start losing to something they could not have played around, and this
+ * value needs to come down.
+ */
+export const SCROLL_SPEED_PER_RAMP = 0.75;
+
+/**
+ * Gap between moulds in px. Clamped, unlike speed — shrinking it further on top
+ * of ever-rising speed would eventually overlap moulds. Acceleration alone
+ * already shortens the *time* between them, which is what a player feels.
+ */
 export const GAP_START = 150;
 export const GAP_END = 70;
 
