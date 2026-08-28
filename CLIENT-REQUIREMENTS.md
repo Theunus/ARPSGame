@@ -165,19 +165,27 @@ their side of the line — worth flagging to them in writing.
 ### 3.1 🟠 Logo files
 
 SVG preferred, PNG with transparency acceptable. Both a full-colour and a
-single-colour/reversed version, for the dark UI.
+single-colour/reversed version. **Still needed** — the colours have landed but the mark
+itself hasn't, so the game currently spells "ARPS" as styled text rather than showing the
+logo. A vector logo also lets us put the mark on the QR banner and the leaderboard header.
 
-### 3.2 🟠 Brand colours
+### 3.2 ✅ Brand colours — received
 
-Hex values, and ideally which is primary, secondary and accent. I am building on a neutral
-industrial palette until these arrive, behind a swappable theme layer — so this is a
-one-file change, not a rework, provided it lands by week 5.
+Taken from the ARPS logo: deep navy, hazard orange, cool grey on light. Applied as a light
+theme in `apps/game/src/theme/theme.arps.ts` — navy structure and text, orange as the hero
+accent (target line, combo, buttons, the winner's badge), on a soft light-grey ground that
+mirrors the logo's field. The whole game and leaderboard re-themed from that one file, as
+designed. If any exact hex values differ from what I sampled off the logo, they're a
+one-line change each.
 
 ### 3.3 🟠 Fonts, **and the web licence**
 
-Font files plus confirmation they are licensed for web use. Corporate brand fonts are
-frequently print-only licensed, and this catches people out late. If there is any doubt, I
-will pick a visually close open-source alternative.
+Font files plus confirmation they are licensed for **web** use. Corporate brand fonts are
+frequently print-only licensed, and this catches people out late. Until they arrive the game
+uses a clean system-font stack styled to echo the logo's spaced geometric caps — no webfont
+request, so nothing to load on bad venue wifi. Swapping in the real face is a two-line change
+in the theme's `fonts` block. If the licence is print-only, I'll pick a close open-source
+alternative.
 
 ### 3.4 🟠 Product range, with approval to use the names in-game
 
@@ -296,7 +304,7 @@ the T&Cs promise about notification.
 | 2.2 | Marketing consent decision | 🔴 | ☐ |
 | 2.3 | Unsubscribe mechanism | 🟡 | ☐ |
 | 3.1 | Logo files | 🟠 | ☐ |
-| 3.2 | Brand colours | 🟠 | ☐ |
+| 3.2 | Brand colours | ✅ | ☑ received, applied |
 | 3.3 | Fonts + web licence | 🟠 | ☐ |
 | 3.4 | Product names approved | 🟠 | ☐ |
 | 3.5 | Product photography | 🟡 | ☐ |

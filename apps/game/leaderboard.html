@@ -3,29 +3,66 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#14161a" />
+    <!-- Mirrors theme.colors.bg (ARPS light grey). The one place a colour literal
+         is unavoidable: it paints the browser chrome before any script runs. -->
+    <meta name="theme-color" content="#f0f2f5" />
     <title>Pour Line — Leaderboard</title>
     <style>
       /* Colour values are set as custom properties from theme.ts at runtime
          (src/leaderboard/main.ts) — this file has no colour literals of its
-         own, same rule as the rest of the app. */
+         own beyond the boot-background fallback, same rule as the rest of the
+         app. */
       html,
       body {
         margin: 0;
         padding: 0;
         height: 100%;
-        background: var(--bg);
+        /* Fallback mirrors theme.colors.bg, only visible for the instant before
+           main.ts sets --bg. */
+        background: var(--bg, #f0f2f5);
         color: var(--text);
         overflow: hidden;
         -webkit-font-smoothing: antialiased;
       }
 
       body {
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family: var(--font-body, system-ui, -apple-system, sans-serif);
         display: flex;
         flex-direction: column;
         padding: clamp(20px, 3vw, 48px) clamp(24px, 4vw, 72px);
         box-sizing: border-box;
+        position: relative;
+      }
+
+      /* Corner triangles echoing the ARPS logo motif — faint, fixed to the
+         viewport corners, behind everything. Colours come from the theme vars. */
+      body::before,
+      body::after {
+        content: '';
+        position: fixed;
+        width: clamp(160px, 20vw, 300px);
+        height: clamp(160px, 20vw, 300px);
+        pointer-events: none;
+        z-index: 0;
+      }
+      body::before {
+        top: 0;
+        right: 0;
+        background: var(--accent-faint);
+        clip-path: polygon(100% 0, 0 0, 100% 100%);
+      }
+      body::after {
+        bottom: 0;
+        left: 0;
+        background: var(--formwork-faint);
+        clip-path: polygon(0 100%, 0 0, 100% 100%);
+      }
+
+      header,
+      .board,
+      footer {
+        position: relative;
+        z-index: 1;
       }
 
       header {
@@ -40,13 +77,25 @@
       .titles {
         display: flex;
         align-items: baseline;
-        gap: 18px;
+        gap: 16px;
+      }
+
+      .brand {
+        font-family: var(--font-display, system-ui, sans-serif);
+        font-size: clamp(22px, 2.4vw, 34px);
+        font-weight: 800;
+        letter-spacing: 0.28em;
+        /* letter-spacing adds trailing space after the last glyph; pull the
+           next item back so the gap reads even. */
+        margin-right: -0.28em;
+        color: var(--accent);
       }
 
       h1 {
         margin: 0;
+        font-family: var(--font-display, system-ui, sans-serif);
         font-size: clamp(24px, 2.6vw, 36px);
-        letter-spacing: 0.06em;
+        letter-spacing: 0.12em;
         font-weight: 800;
       }
 
@@ -129,7 +178,7 @@
       }
 
       tbody tr:nth-child(even) {
-        background: rgba(255, 255, 255, 0.015);
+        background: var(--row-alt);
       }
 
       td {
@@ -152,7 +201,8 @@
         border-radius: 50%;
         font-weight: 800;
         font-size: 0.85em;
-        color: var(--bg);
+        /* Dark ink, legible on every badge fill in both light and dark themes. */
+        color: var(--on-accent);
         background: var(--formwork-dim);
       }
 
@@ -242,11 +292,14 @@
       .skeleton-bar {
         height: 1em;
         border-radius: 6px;
+        /* ground-line → formwork-dim → ground-line: a subtle mid-grey sweep that
+           stays a *lighter* shimmer than its base in both themes (using
+           --formwork here would sweep dark navy on the light theme). */
         background: linear-gradient(
           90deg,
-          var(--formwork-dim) 25%,
-          var(--formwork) 37%,
-          var(--formwork-dim) 63%
+          var(--ground-line) 25%,
+          var(--formwork-dim) 37%,
+          var(--ground-line) 63%
         );
         background-size: 400% 100%;
         animation: shimmer 1.6s ease-in-out infinite;
@@ -274,6 +327,7 @@
   <body>
     <header>
       <div class="titles">
+        <span class="brand" id="brand">ARPS</span>
         <h1 id="wordmark">POUR LINE</h1>
         <span class="subtitle">Live Leaderboard</span>
       </div>

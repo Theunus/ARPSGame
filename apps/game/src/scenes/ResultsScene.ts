@@ -20,36 +20,64 @@ export class ResultsScene extends Phaser.Scene {
     const result = toResult(data.state);
     this.cameras.main.setBackgroundColor(c.bg);
 
-    const font = 'system-ui, -apple-system, sans-serif';
-    let y = 110;
+    this.drawBrandTriangles();
+
+    let y = 96;
+
+    // ARPS brand eyebrow — widely spaced caps in hazard orange, echoing the
+    // logo's letter-spaced lockup.
+    if (theme.brand) {
+      this.add
+        .text(WORLD_W / 2, y, theme.brand, {
+          fontFamily: theme.fonts.display,
+          fontSize: '20px',
+          fontStyle: 'bold',
+          color: css(c.accent),
+          letterSpacing: 9,
+        })
+        .setOrigin(0.5);
+      y += 42;
+    }
 
     if (data.demo) {
       this.add
         .text(WORLD_W / 2, y, 'DEMO RUN — NOT SAVED', {
-          fontFamily: font,
+          fontFamily: theme.fonts.body,
           fontSize: '18px',
           fontStyle: 'bold',
-          color: css(c.bg),
+          color: css(c.onAccent),
           backgroundColor: css(c.accent),
+          letterSpacing: 1.5,
           padding: { x: 12, y: 6 },
         })
         .setOrigin(0.5);
-      y += 60;
+      y += 56;
     }
 
     this.add
-      .text(WORLD_W / 2, y, 'POUR COMPLETE', { fontFamily: font, fontSize: '30px', color: css(c.textDim) })
+      .text(WORLD_W / 2, y, 'POUR COMPLETE', {
+        fontFamily: theme.fonts.body,
+        fontSize: '26px',
+        color: css(c.textDim),
+        letterSpacing: 5,
+      })
       .setOrigin(0.5);
-    y += 80;
+    y += 72;
 
     this.add
       .text(WORLD_W / 2, y, result.score.toLocaleString('en-ZA'), {
-        fontFamily: font,
-        fontSize: '96px',
+        fontFamily: theme.fonts.display,
+        fontSize: '94px',
+        fontStyle: 'bold',
         color: css(c.text),
+        letterSpacing: 1,
       })
       .setOrigin(0.5);
-    y += 100;
+    y += 74;
+
+    // The brand's underline motif — the orange rule beneath the ARPS wordmark.
+    this.add.rectangle(WORLD_W / 2, y, 88, 4, c.accent);
+    y += 44;
 
     const rows: Array<[string, string]> = [
       ['Moulds placed', String(result.mouldsCompleted)],
@@ -60,16 +88,53 @@ export class ResultsScene extends Phaser.Scene {
 
     for (const [label, value] of rows) {
       this.add
-        .text(80, y, label, { fontFamily: font, fontSize: '26px', color: css(c.textDim) })
+        .text(80, y, label, { fontFamily: theme.fonts.body, fontSize: '26px', color: css(c.textDim) })
         .setOrigin(0, 0.5);
       this.add
-        .text(WORLD_W - 80, y, value, { fontFamily: font, fontSize: '26px', color: css(c.text) })
+        .text(WORLD_W - 80, y, value, {
+          fontFamily: theme.fonts.display,
+          fontSize: '26px',
+          color: css(c.text),
+          letterSpacing: 0.5,
+        })
         .setOrigin(1, 0.5);
       y += 46;
     }
 
-    this.drawReplayCheck(data, result.score, y + 30);
+    this.drawReplayCheck(data, result.score, y + 28);
     this.addPlayAgain(data.demo);
+  }
+
+  /**
+   * Faint corner triangles echoing the ARPS logo's geometric motif. Low alpha
+   * and pushed into the extreme corners so they read as brand texture behind
+   * the layout, never competing with the score or the button.
+   */
+  private drawBrandTriangles(): void {
+    const c = theme.colors;
+    const g = this.add.graphics();
+
+    const tri = (px: number, py: number, size: number, color: number, alpha: number, corner: 'tl' | 'br') => {
+      g.fillStyle(color, alpha);
+      const pts =
+        corner === 'tl'
+          ? [
+              new Phaser.Geom.Point(px, py),
+              new Phaser.Geom.Point(px + size, py),
+              new Phaser.Geom.Point(px, py + size),
+            ]
+          : [
+              new Phaser.Geom.Point(px + size, py + size),
+              new Phaser.Geom.Point(px, py + size),
+              new Phaser.Geom.Point(px + size, py),
+            ];
+      g.fillPoints(pts, true);
+    };
+
+    tri(-30, -30, 150, c.accent, 0.14, 'tl');
+    tri(64, -46, 96, c.formwork, 0.08, 'tl');
+    tri(WORLD_W - 120, WORLD_H - 120, 150, c.accent, 0.12, 'br');
+    tri(WORLD_W - 190, WORLD_H - 64, 96, c.formwork, 0.08, 'br');
   }
 
   /**
@@ -114,14 +179,19 @@ export class ResultsScene extends Phaser.Scene {
 
   private addPlayAgain(demo: boolean): void {
     const c = theme.colors;
-    const font = 'system-ui, -apple-system, sans-serif';
     const y = WORLD_H - 130;
 
-    const button = this.add.rectangle(WORLD_W / 2, y, WORLD_W - 140, 84, c.accent).setInteractive({
-      useHandCursor: true,
-    });
+    const button = this.add
+      .rectangle(WORLD_W / 2, y, WORLD_W - 140, 84, c.accent)
+      .setInteractive({ useHandCursor: true });
     this.add
-      .text(WORLD_W / 2, y, 'POUR AGAIN', { fontFamily: font, fontSize: '32px', color: css(c.bg) })
+      .text(WORLD_W / 2, y, 'POUR AGAIN', {
+        fontFamily: theme.fonts.display,
+        fontSize: '32px',
+        fontStyle: 'bold',
+        color: css(c.onAccent),
+        letterSpacing: 3,
+      })
       .setOrigin(0.5);
 
     // Attempts are unlimited here on purpose. The three-attempt limit will be
@@ -134,7 +204,7 @@ export class ResultsScene extends Phaser.Scene {
         WORLD_W / 2,
         y + 68,
         demo ? 'demo mode — unlimited replays, never saved' : 'attempt limits are enforced server-side',
-        { fontFamily: font, fontSize: '18px', color: css(c.textDim) },
+        { fontFamily: theme.fonts.body, fontSize: '18px', color: css(c.textDim) },
       )
       .setOrigin(0.5);
 

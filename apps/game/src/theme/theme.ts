@@ -11,6 +11,24 @@ import type { MixKind } from '@pourline/sim';
 export interface Theme {
   name: string;
 
+  /**
+   * Font stacks. The real ARPS brand face is a licensed geometric sans (see
+   * CLIENT-REQUIREMENTS 3.3) that isn't in the repo yet, so both slots use
+   * robust system stacks for now — no webfont request, which keeps the game
+   * loading instantly on bad venue wifi and working fully offline. When the
+   * licensed font lands, self-host it and change these two lines only.
+   *
+   * `display` is for the wordmark and headline numbers, always paired with
+   * letter-spacing and caps in code to echo the spaced geometric ARPS lockup.
+   */
+  fonts: {
+    display: string;
+    body: string;
+  };
+
+  /** Company mark, e.g. "ARPS". Shown as an eyebrow above the game name. */
+  brand: string;
+
   colors: {
     bg: number;
     bgAccent: number;
@@ -33,6 +51,12 @@ export interface Theme {
     good: number;
     danger: number;
     accent: number;
+    /**
+     * Ink for text sitting ON an accent-coloured surface (buttons, badges, the
+     * demo tag). Kept separate from `bg` because it must stay dark whether the
+     * theme's background is dark or light — light text on orange washes out.
+     */
+    onAccent: number;
 
     /**
      * Leaderboard rank badges (1st/2nd/3rd). Named separately from `accent`
@@ -60,6 +84,13 @@ export interface Theme {
 export const neutralTheme: Theme = {
   name: 'neutral',
 
+  fonts: {
+    display: '"Helvetica Neue", Arial, system-ui, sans-serif',
+    body: 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  },
+
+  brand: '',
+
   colors: {
     bg: 0x14161a,
     bgAccent: 0x1c2027,
@@ -82,6 +113,7 @@ export const neutralTheme: Theme = {
     good: 0x3ddc84,
     danger: 0xff5a3c,
     accent: 0xffc21a,
+    onAccent: 0x14161a,
 
     rankGold: 0xffc21a,
     rankSilver: 0xc7ccd4,
@@ -98,7 +130,10 @@ export const neutralTheme: Theme = {
   wordmark: 'POUR LINE',
 };
 
-export const theme: Theme = neutralTheme;
+// The active theme. Swap this one line to re-brand the whole game — neutralTheme
+// is kept as the pre-brand fallback and reference. arpsTheme is defined in its
+// own file (type-only import back to here, so no runtime cycle).
+export { arpsTheme as theme } from './theme.arps.ts';
 
 /** Phaser text styles want CSS colour strings, the draw API wants numbers. */
 export function css(color: number): string {

@@ -65,33 +65,41 @@ export class PlayScene extends Phaser.Scene {
 
     this.scoreText = this.add
       .text(24, 28, '0', {
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-        fontSize: '52px',
+        fontFamily: theme.fonts.display,
+        fontSize: '54px',
         color: css(c.text),
+        letterSpacing: 1,
       })
       .setOrigin(0, 0);
 
     this.comboText = this.add
-      .text(24, 88, '', {
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+      .text(24, 90, '', {
+        fontFamily: theme.fonts.display,
         fontSize: '26px',
+        fontStyle: 'bold',
         color: css(c.accent),
+        letterSpacing: 2,
       })
       .setOrigin(0, 0);
 
+    // Mix name as a wide-spaced eyebrow, echoing the letter-spaced ARPS tagline.
+    // Sits just above the chute funnel and below the combo row so the two never
+    // collide when a combo is running.
     this.mixText = this.add
-      .text(WORLD_W / 2, CHUTE_Y - 112, '', {
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-        fontSize: '22px',
+      .text(WORLD_W / 2, CHUTE_Y - 86, '', {
+        fontFamily: theme.fonts.body,
+        fontSize: '20px',
         color: css(c.textDim),
+        letterSpacing: 4,
       })
       .setOrigin(0.5, 0);
 
     this.hintText = this.add
       .text(WORLD_W / 2, GROUND_Y + 70, 'HOLD TO POUR — release early', {
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: theme.fonts.body,
         fontSize: '24px',
         color: css(c.textDim),
+        letterSpacing: 1,
       })
       .setOrigin(0.5, 0);
 
@@ -101,12 +109,13 @@ export class PlayScene extends Phaser.Scene {
     if (this.demo) {
       this.add
         .text(WORLD_W / 2, 8, 'DEMO MODE — SCORE NOT SAVED', {
-          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontFamily: theme.fonts.body,
           fontSize: '16px',
           fontStyle: 'bold',
-          color: css(c.bg),
+          color: css(c.onAccent),
           backgroundColor: css(c.accent),
-          padding: { x: 10, y: 5 },
+          letterSpacing: 1.5,
+          padding: { x: 11, y: 5 },
         })
         .setOrigin(0.5, 0);
     }
@@ -258,9 +267,11 @@ export class PlayScene extends Phaser.Scene {
 
     const t = this.add
       .text(x, y, label, {
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: theme.fonts.display,
         fontSize: '28px',
+        fontStyle: 'bold',
         color: css(color),
+        letterSpacing: 1,
       })
       .setOrigin(0.5, 1);
 

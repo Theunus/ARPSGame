@@ -26,10 +26,11 @@ Week 1 of a 2–6 week build. **The game is playable end to end.**
 | ✅ | Tuning harness with synthetic players |
 | ✅ | Staff/demo showcase mode — unlimited plays, never saved |
 | ✅ | Big-screen leaderboard page — sample data, real query is the only gap |
+| ✅ | ARPS brand colours — light navy/orange theme (`theme.arps.ts`) |
 | ⬜ | Registration, POPIA consent, Supabase schema, Edge Functions |
 | ⬜ | Service worker, offline submission queue, play tokens |
 | ⬜ | Admin page |
-| ⬜ | ARPS brand assets |
+| ⬜ | ARPS logo art + licensed brand font (colours already in) |
 
 ---
 
