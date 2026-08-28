@@ -17,6 +17,7 @@ import {
   GAP_END,
   GAP_START,
   GOOD_WINDOW_MULT,
+  GROUND_SPILL_LIMIT,
   MAX_COMBO_MULT,
   MAX_FRAMES,
   MAX_INPUT_EVENTS,
@@ -122,6 +123,7 @@ export function createState(seed: number): SimState {
     mouldsCompleted: 0,
     perfects: 0,
     wasted: 0,
+    groundSpill: 0,
     over: false,
 
     pouring: false,
@@ -201,17 +203,49 @@ export function mouldUnderChute(s: SimState): Mould | null {
  */
 function deliver(s: SimState, amount: number): void {
   const m = mouldUnderChute(s);
-  if (!m || m.spilled) {
+
+  if (!m) {
+    // Concrete landing with no mould under the chute — spilled on the ground,
+    // ahead of (or behind) the form. A brief bleed is forgiven; a sustained
+    // stream past the limit costs a strike.
+    s.wasted += amount;
+    s.groundSpill += amount;
+    if (!s.over && s.groundSpill > GROUND_SPILL_LIMIT) registerGroundSpill(s);
+    return;
+  }
+
+  if (m.spilled) {
+    // The mould already overflowed and took its strike — further concrete is
+    // just waste, not a second strike.
     s.wasted += amount;
     return;
   }
 
+  // Back on target: landing in a live mould clears the ground-spill streak.
+  s.groundSpill = 0;
   m.fill += amount;
 
   const tol = toleranceFor(m.target, MIXES[s.mix].flow, s.frame);
   if (m.fill > m.target + tol.spillOver) {
     m.spilled = true;
     registerOutcome(s, m, 'spill');
+  }
+}
+
+/**
+ * A spill with no mould involved — poured on the ground. Mirrors the strike
+ * bookkeeping in registerOutcome, but emits a spill event with no mouldId so
+ * the renderer shows it at the chute rather than on a form.
+ */
+function registerGroundSpill(s: SimState): void {
+  s.combo = 0;
+  s.groundSpill = 0;
+  s.events.push({ frame: s.frame, kind: 'spill' });
+  s.strikes++;
+  s.events.push({ frame: s.frame, kind: 'strike' });
+  if (s.strikes >= MAX_STRIKES) {
+    s.over = true;
+    s.events.push({ frame: s.frame, kind: 'gameOver' });
   }
 }
 

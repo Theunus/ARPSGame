@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {
   CHUTE_X,
   CHUTE_Y,
+  GROUND_SPILL_LIMIT,
   GROUND_Y,
   MAX_STRIKES,
   MIXES,
@@ -228,6 +229,7 @@ export class PlayScene extends Phaser.Scene {
       combo: this.state.combo,
       pouring: this.state.pouring,
       inFlight: Number(this.state.inFlight.toFixed(2)),
+      groundSpill: Number(this.state.groundSpill.toFixed(2)),
       mix: this.state.mix,
       moulds: this.state.moulds.length,
       underChute: m ? { kind: m.kind, fill: Number(m.fill.toFixed(1)), target: m.target } : null,
@@ -299,6 +301,7 @@ export class PlayScene extends Phaser.Scene {
     this.g.fillStyle(c.groundLine, 1);
     this.g.fillRect(0, GROUND_Y - 2, WORLD_W, 2);
 
+    this.drawGroundPuddle();
     for (const m of s.moulds) this.drawMould(m);
 
     this.drawChute();
@@ -361,6 +364,28 @@ export class PlayScene extends Phaser.Scene {
 
     this.g.lineStyle(2, m.evaluated ? c.formworkDim : c.formwork, 1);
     this.g.strokeRect(m.x, top, m.width, m.height);
+  }
+
+  /**
+   * A puddle at the chute base that grows and reddens as ground-spillage builds
+   * toward a strike. This is the fairness half of the ground-spill rule: the
+   * player must be able to see the danger accumulating, not just get struck out
+   * of nowhere.
+   */
+  private drawGroundPuddle(): void {
+    const s = this.state;
+    if (s.groundSpill <= 0) return;
+    const c = theme.colors;
+
+    const t = Math.min(s.groundSpill / GROUND_SPILL_LIMIT, 1);
+    const w = 34 + t * 150;
+    // formworkDim rather than concreteWet: on the light ARPS ground the wet-
+    // concrete tone is too close to the ground colour to read early — this
+    // needs to be visible from the first drop, not just once it's dangerous.
+    // Warns toward danger as it nears the limit.
+    const color = t > 0.6 ? c.danger : c.formworkDim;
+    this.g.fillStyle(color, 0.45 + t * 0.4);
+    this.g.fillEllipse(CHUTE_X, GROUND_Y + 4, w, 18);
   }
 
   private drawChute(): void {

@@ -54,10 +54,28 @@ Overflow is deliberately punished harder than underfill. It creates the central 
 chasing perfects to grow the multiplier is exactly what makes you spill. Greedy players
 blow up; timid players score low. That is where the skill spread comes from.
 
+### Ground spill
+
+Pouring with no mould under the chute — starting too early, or holding through the gap
+between moulds — is also a spill. A small bleed is forgiven (the tail already carries a
+brief early pour safely into the next mould, so this only bites a genuinely careless or
+sustained stream), but cross the limit and it costs a strike exactly like overflowing a
+mould, shown as the same "SPILL" call-out at the chute with no mould to point at.
+
+This closes a loophole the tail otherwise leaves open: without it, the only cost of pouring
+early is wasted concrete with no scoreboard consequence, so a player under pressure can
+just hold the button through every gap and let the tail sort out where it lands. Now the
+*press* has to be timed, not only the release — which is the point: it makes the game a
+little trickier without changing what a correct pour looks like.
+
+A puddle at the chute base grows and reddens as it builds, so the danger is visible before
+it strikes rather than a strike arriving out of nowhere — the same fairness principle as
+the telegraphed tail above.
+
 ### Three strikes
 
-A strike is a spill, or a mould exiting the screen badly underfilled. Three icons across
-the top, filled in as you lose them.
+A strike is a mould spilling, a mould exiting the screen badly underfilled, or a ground
+spill. Three icons across the top, filled in as you lose them.
 
 Chosen because it needs no explanation to anyone anywhere, it is readable at a glance
 mid-panic, and combined with the difficulty ramp it caps run length naturally — which is a

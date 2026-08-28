@@ -83,6 +83,30 @@ not as an unfair strike at a normal death time. If you raise
 `SCROLL_SPEED_PER_RAMP`, re-check this table — the harness flags any
 combination that walls before its pacing floor.
 
+### Ground spill
+
+`GROUND_SPILL_LIMIT` — fill units you may pour with no mould under the chute before it
+strikes, same as overflowing one. Exists so a player can't just hold the button through
+every gap between moulds and let the tail sort out where it lands; the *press* now has to
+be timed, not only the release.
+
+**A well-timed early press never touches this limit, at any flow rate.** Delivery is
+deferred by the mix's `tail` — concrete judged as landing "on the ground" is checked only
+when it *arrives*, not when it's poured. Press up to exactly `tail` frames before a mould
+shows up and every unit arrives the moment the mould does, contributing zero to
+`groundSpill` regardless of how large the limit is. Verified directly: pressing exactly
+`tail` frames early for screed (the tightest mix — fastest flow, longest tail) produces
+`groundSpill: 0`.
+
+What the limit actually catches is pressing *more* than `tail` frames before a mould
+arrives — real anticipation error, not a timing edge case — or holding through a genuine
+empty gap with nothing coming. Pressing 10 frames too early on screed wastes exactly
+`10 × flow` units on the ground before the mould ever shows, confirmed to trigger the
+strike at precisely that amount.
+
+Deliberately independent of the tolerance ramp — it doesn't tighten over a run, because
+timing the press is a fixed skill the difficulty curve doesn't need to escalate.
+
 ---
 
 ## Targets

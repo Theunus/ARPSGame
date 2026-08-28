@@ -33,6 +33,22 @@ export const MAX_INPUT_EVENTS = 2000;
 
 export const MAX_STRIKES = 3;
 
+/**
+ * Fill units of concrete you may pour onto the ground — no mould under the
+ * chute — before it counts as a spill and costs a strike. Pouring "ahead of the
+ * form" is the new tricky bit: you have to time the *press*, not just the
+ * release.
+ *
+ * Sits on top of the tail's natural forgiveness: because concrete is judged
+ * where it *lands* (tail frames after it leaves the chute), starting a pour up
+ * to `tail` frames before a mould arrives already lands safely inside it — this
+ * limit only bites when you pour meaningfully earlier than that, or hold the
+ * button through the gap between moulds. A brief experimental tap stays well
+ * under it; a sustained stream into empty space does not. Tunable — see
+ * docs/TUNING.md.
+ */
+export const GROUND_SPILL_LIMIT = 12;
+
 // ---------------------------------------------------------------------------
 // Difficulty ramp
 // ---------------------------------------------------------------------------

@@ -100,8 +100,14 @@ export interface SimState {
   maxCombo: number;
   mouldsCompleted: number;
   perfects: number;
-  /** Fill units poured onto the ground with no mould under the chute. */
+  /** Fill units poured onto the ground with no mould under the chute (lifetime). */
   wasted: number;
+  /**
+   * Fill units of the *current* run of ground-spillage — concrete landing with
+   * no mould under the chute. Resets when concrete next lands in a mould, and
+   * when it crosses GROUND_SPILL_LIMIT it costs a strike. Drives the puddle.
+   */
+  groundSpill: number;
   over: boolean;
 
   pouring: boolean;
