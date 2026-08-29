@@ -162,6 +162,28 @@ create table admin_audit (
 The public leaderboard is a view exposing **only** `display_name` and `verified_score` —
 structurally incapable of returning an email address. See branch 5.
 
+**Built:** `supabase/migrations/`, applied and proven against a real local Supabase stack
+(schema, RLS, both Edge Functions, the whole registration → play → submit → leaderboard round
+trip, including replay rejection of a tampered score). A few details landed differently than
+this sketch:
+
+- No `signature` column on `play_tokens` — the token handed to the client is
+  `<tokenId>.<hmac(tokenId)>`, verified by recomputing the HMAC against `TOKEN_SECRET` rather
+  than storing it. One less thing that could drift out of sync with what was actually issued.
+- No `attempts_granted` on `players` — how many attempts remain is just "how many
+  `play_tokens` rows for this player have `used_at is null`", so there is nothing to keep in
+  sync by hand.
+- `runs` gained `max_combo` and `moulds_completed` (a follow-up migration, not an edit to the
+  original one — see that migration's own comment for why) so the leaderboard can show a
+  player's combo and moulds from their actual best-scoring run, not independently maxed
+  numbers that could Frankenstein stats from two different attempts.
+- `public_leaderboard` uses `distinct on` to pick one full row per player — their best
+  verified run, earliest submission breaking a tie — rather than independent `max()`
+  aggregates, which is what makes the tie-break rule in branch 4 actually true in the data,
+  not just true in the T&Cs copy.
+- `admin_audit` exists in the schema, unused — no admin page yet (branch 6), but the table
+  needs no new migration when one lands.
+
 ## Build schedule (6-week shape; compress from the back if it's 4)
 
 | Week | Work |

@@ -140,9 +140,9 @@ Not blockers for starting, but they need answers before launch.
 | Who writes the CPA T&Cs | Branch 5 | Before the QR goes to print |
 | Information Officer details + registration | Branch 5 | Before launch |
 | Signed s21 Operator agreement | Branch 5 | Before any real data is collected |
-| Supabase project in whose account | Branch 3 | Before week 3 |
+| Supabase project in whose account | Branch 3 | **Now the only blocker on a real deploy** — schema and Edge Functions are built and proven locally |
 | Is there a screen at the stand | Branch 6 | Before week 4 |
-| Show rank immediately after each run? | Branch 2 | Before week 4 — recommended yes |
+| ~~Show rank immediately after each run?~~ | Branch 2 | Resolved — Results screen links straight to the live leaderboard |
 
 All client-side items are tracked with priorities in
 [`CLIENT-REQUIREMENTS.md`](../../CLIENT-REQUIREMENTS.md).
@@ -151,6 +151,12 @@ All client-side items are tracked with priorities in
 
 ## Next step
 
-Scaffold the repo: Vite + TypeScript + Phaser 3, `/packages/sim` with the deterministic loop,
-and a playable grey-box pour on a phone. Getting the tail to *feel* right is the highest-risk
-work in the project and everything else is downstream of it, so it goes first.
+Done, as of this writing: the sim, the Phaser client, the ARPS theme, and — the last big
+piece — registration, POPIA consent capture, attempt limiting and server-side replay
+verification, proven end to end against a real local Supabase stack (see the README's
+"Registration & attempts" section for how to run it).
+
+What's left is mostly *other people's* actions, not more code: a real Supabase project in
+ARPS's account (branch 3; the one genuine blocker), the offline submission queue for bad
+venue wifi (branch 6), and the admin page. See the README status table for the current
+picture — it changes faster than this document does.

@@ -13,13 +13,15 @@ export default defineConfig({
     target: 'es2020',
     sourcemap: true,
     rollupOptions: {
-      // Vite only bundles index.html by default. The leaderboard is a
-      // separate page (apps/game/leaderboard.html) meant to run on a laptop
-      // driving a stand TV, not inside the phone game — it needs its own
-      // build entry or `npm run build` would silently drop it.
+      // Vite only bundles index.html by default. The leaderboard and
+      // registration pages are separate entry points — the leaderboard runs
+      // on a laptop driving a stand TV, register.html is the actual QR-code
+      // destination — and each needs its own build entry or `npm run build`
+      // would silently drop it.
       input: {
         main: 'index.html',
         leaderboard: 'leaderboard.html',
+        register: 'register.html',
       },
       output: {
         // Phaser is by far the largest dependency and never changes between

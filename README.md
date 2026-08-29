@@ -25,10 +25,12 @@ Week 1 of a 2–6 week build. **The game is playable end to end.**
 | ✅ | Phaser client: full loop, scoring, strikes, difficulty ramp |
 | ✅ | Tuning harness with synthetic players |
 | ✅ | Staff/demo showcase mode — unlimited plays, never saved |
-| ✅ | Big-screen leaderboard page — sample data, real query is the only gap |
+| ✅ | Big-screen leaderboard page — reads real submitted scores via PostgREST |
 | ✅ | ARPS brand colours — light navy/orange theme (`theme.arps.ts`) |
-| ⬜ | Registration, POPIA consent, Supabase schema, Edge Functions |
-| ⬜ | Service worker, offline submission queue, play tokens |
+| ✅ | Registration, POPIA consent capture, attempt limiting, score submission |
+| ✅ | Supabase schema, RLS, Edge Functions — proven end to end against a real local stack |
+| ⬜ | Deployed to a real (non-local) Supabase project — see CLIENT-REQUIREMENTS 4.2 |
+| ⬜ | Service worker, offline submission queue |
 | ⬜ | Admin page |
 | ⬜ | ARPS logo art + licensed brand font (colours already in) |
 
@@ -40,21 +42,97 @@ Week 1 of a 2–6 week build. **The game is playable end to end.**
 npm install
 ```
 
+The game needs its backend running to let anyone actually play (see
+[Registration & attempts](#registration--attempts--the-backend) below) —
+start that first:
+
+```bash
+npx supabase start
+```
+
+The first run pulls several Docker images and takes a few minutes; every run
+after that is seconds. Then the game itself:
+
 ```bash
 npm run dev
 ```
 
 Vite prints a **Network** URL alongside the local one. Open that on your phone —
 this game is tuned by thumb, and a desktop mouse tells you nothing about whether
-the pour feels right.
+the pour feels right. Start at `/register.html`, not `/index.html` — that's the
+actual QR-code destination, and `index.html` will send you there anyway if you
+don't have a registered attempt (see below).
 
 | Command | |
 |---|---|
+| `npx supabase start` / `stop` | The local backend — Postgres, PostgREST, Edge Functions, all in Docker |
 | `npm run dev` | Dev server, exposed on the LAN for phone testing |
-| `npm run build` | Production build |
+| `npm run build` | Production build (three pages: game, register, leaderboard) |
 | `npm test` | Simulation tests — **the load-bearing ones** |
 | `npm run typecheck` | Typecheck both workspaces |
 | `npm run tune --workspace=@pourline/sim` | Difficulty and score distribution report |
+
+---
+
+## Registration & attempts — the backend
+
+Free, and genuinely serverless: **Docker only runs locally**, for development.
+The live version runs on Supabase's free tier and Cloudflare Pages — nothing
+for you to patch, restart, or pay uptime on. See
+[Grill-Me-3](artifacts/grill-me/PourLine-Grill-Me-3.md) for why this stack and
+not a self-hosted container.
+
+```bash
+npx supabase start   # boots Postgres + PostgREST + Edge Functions in Docker
+npx supabase status  # URLs and local keys, if you need them again
+npx supabase stop    # when you're done
+```
+
+**The flow:** `register.html` collects name, email, phone (optional) and the
+two POPIA consent checkboxes (Grill-Me-5), then calls the `register` Edge
+Function. That function normalises the email, hashes it (`EMAIL_HASH_SECRET`)
+to dedupe without ever decrypting anything, encrypts the real address
+(`EMAIL_ENC_KEY`), and either creates a new player with three fresh play
+tokens or — if that email has already registered — returns whichever of the
+three are still unused. Tokens are signed capability strings
+(`TOKEN_SECRET`), not just database IDs; see
+[Grill-Me-4](artifacts/grill-me/PourLine-Grill-Me-4.md).
+
+The client caches that response in `localStorage` (`src/session.ts`) purely
+as a convenience — `main.ts` uses it to decide whether to boot the game at
+all, and skips constructing Phaser entirely (no ~340KB engine load) if there's
+no usable attempt and it isn't staff/demo mode. **None of this is the real
+enforcement.** The actual limit is `submit-run`: it verifies the token's
+signature, replays the submitted input log through the identical
+`packages/sim` module using the seed *it* issued, and only a score that
+matches is ever written as `verified`. A stale or tampered client-side cache
+can only ever show the wrong button state — it can't get a bad score onto the
+leaderboard.
+
+Three secrets the functions need beyond what Supabase injects automatically —
+copy `supabase/functions/.env.example` to `supabase/functions/.env` (gitignored)
+and fill in random values for local dev:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Run that three times for `EMAIL_HASH_SECRET`, `EMAIL_ENC_KEY`, `TOKEN_SECRET`.
+
+**Deploying for real** needs a free Supabase project (CLIENT-REQUIREMENTS 4.2 —
+ideally in ARPS's own account, not yours) and Cloudflare Pages for hosting:
+
+```bash
+npx supabase link --project-ref <your-project-ref>
+npx supabase db push                              # applies both migrations
+npx supabase secrets set --env-file supabase/functions/.env   # use NEW random values, not the local ones
+npx supabase functions deploy register
+npx supabase functions deploy submit-run
+```
+
+Then set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (from
+`npx supabase status`) in Cloudflare Pages' build environment — `src/api.ts`
+and `src/leaderboard/data.ts` fall back to the local Docker URLs otherwise.
 
 ---
 
@@ -75,10 +153,16 @@ to hand the device back to normal. In dev builds only, the code `dev-demo` works
 without any `.env` file — it does not exist in a production build.
 
 This is a client-side labelling convenience, not a security boundary — the real
-3-attempt limit and leaderboard don't exist yet either (see the status table
-above). The intended server-side contract, so this doesn't need retrofitting when
-they land, is in
-[the design record](artifacts/grill-me/PourLine-Grill-Me-4.md#the-arps-staffdemo-account).
+3-attempt limit and leaderboard now do exist (see above), and demo mode is
+deliberately kept outside both: a demo run never fetches a play token and
+never calls `submit-run`, so it cannot consume a real attempt or reach the
+leaderboard no matter what the client claims. The server-side demo credential
+described in
+[the design record](artifacts/grill-me/PourLine-Grill-Me-4.md#the-arps-staffdemo-account)
+— authenticated independently, exempt from the attempt count, excluded from
+`public_leaderboard` by construction — is still the intended eventual design
+if a more integrated version is ever needed; today's client-only bypass never
+touches the backend at all, which sidesteps that problem rather than solving it.
 
 ---
 
@@ -93,13 +177,17 @@ game.
 npm run dev
 ```
 
-then open `/leaderboard.html`. It polls a `fetchLeaderboard()` function every
-15s; today that function returns sample data from
-[`src/leaderboard/data.ts`](apps/game/src/leaderboard/data.ts). The row shape it
-returns already matches the `public_leaderboard` view designed in
-[Grill-Me-5](artifacts/grill-me/PourLine-Grill-Me-5.md#the-public-leaderboard) —
-first name plus last initial, score, nothing else — so swapping in the real
-Supabase query when the backend lands is a one-function change, not a rebuild.
+then open `/leaderboard.html`. It polls `fetchLeaderboard()`
+([`src/leaderboard/data.ts`](apps/game/src/leaderboard/data.ts)) every 15s,
+which reads `public_leaderboard` directly via PostgREST — no Edge Function
+needed for this half, since the view itself (migration
+`20250101000100_leaderboard_run_stats.sql`) is already narrow enough to give
+the anon key: one row per player, their single best *verified* run only,
+first name plus last initial, nothing that could identify them. A player's
+combo/moulds shown here come from that same best-scoring run, not
+independently maxed stats from different attempts, and the combo figure is
+capped at `MAX_COMBO_MULT` to match what their own results screen showed them
+for that run.
 
 ---
 
@@ -107,7 +195,8 @@ Supabase query when the backend lands is a one-function change, not a rebuild.
 
 ```
 packages/sim/      Deterministic simulation. No DOM, no Phaser, no randomness.
-apps/game/         Phaser 3 client. Renders the sim; never owns game state.
+apps/game/         Phaser 3 client + register/leaderboard pages. Never owns game state.
+supabase/          Schema, RLS, Edge Functions. Runs locally in Docker; deploys to Supabase's free cloud.
 artifacts/         Design record.
 ```
 
@@ -172,4 +261,11 @@ Cloudflare Pages (Johannesburg and Cape Town edge PoPs) with Supabase in the EU
 for Postgres, row-level security and Edge Functions. EU hosting because GDPR
 satisfies POPIA s72 on cross-border transfer without leaning on consent alone.
 
-Not yet wired up — see the status table above.
+The Supabase half is built and proven against a real local stack — schema,
+RLS, both Edge Functions, replay verification, the works (see
+[Registration & attempts](#registration--attempts--the-backend) above). What's
+missing is a real (non-local) Supabase project to point it at, which needs
+someone at ARPS to create one — tracked as item 4.2 in
+[`CLIENT-REQUIREMENTS.md`](CLIENT-REQUIREMENTS.md) — and the Cloudflare Pages
+hosting itself, which is still just `npm run build`'s output sitting in
+`apps/game/dist/` waiting for a place to live.

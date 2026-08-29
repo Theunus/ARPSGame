@@ -1,0 +1,12 @@
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
+
+# Local secrets for `supabase start` / `supabase functions serve` — real
+# random values live here for local dev only. See functions/.env.example.
+functions/.env

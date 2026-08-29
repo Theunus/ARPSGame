@@ -221,6 +221,12 @@ Does the Supabase project live in **their** account or mine?
 
 I would recommend theirs, and it is worth the extra setup friction.
 
+**This is the only thing actually blocking a real deployment now.** The schema, row-level
+security, and both Edge Functions (registration, score verification) are built and proven end
+to end against a local copy of the same stack — creating the real project and handing me
+three commands' worth of access is what's left, not new development. Free tier is comfortably
+enough at this event's scale (500MB database, 5GB bandwidth against maybe 500 players).
+
 ### 4.3 🟡 Stand screen
 
 - Is there a TV or monitor at the stand?

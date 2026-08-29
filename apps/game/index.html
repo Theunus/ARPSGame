@@ -36,10 +36,90 @@
       canvas {
         display: block;
       }
+
+      /* Shown instead of the game — never alongside it — when main.ts decides
+         this visit isn't allowed to play (no registration, or all 3 attempts
+         already used) and isn't staff/demo mode. Phaser is never constructed
+         in that case: no reason to pay for booting a canvas engine to show a
+         sentence and two buttons. Hidden by default; main.ts un-hides it. */
+      #gate {
+        display: none;
+        /* Fixed, not in normal flow — #game is a full-height sibling ahead of
+           it in the document, so without this #gate would be laid out
+           entirely below the viewport (pushed down by #game's own 100%
+           height) and clipped by body's overflow:hidden. This overlays
+           instead of stacking. */
+        position: fixed;
+        inset: 0;
+        box-sizing: border-box;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 32px;
+        font-family: var(--font-body, system-ui, -apple-system, sans-serif);
+        color: var(--text, #1e2f4d);
+      }
+      #gate.visible {
+        display: flex;
+      }
+      #gate .brand {
+        font-family: var(--font-display, system-ui, sans-serif);
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: 0.28em;
+        margin-right: -0.28em;
+        color: var(--accent, #e64f2a);
+      }
+      #gate h1 {
+        font-family: var(--font-display, system-ui, sans-serif);
+        font-size: 26px;
+        margin: 14px 0 6px;
+      }
+      #gate p {
+        color: var(--text-dim, #6a7787);
+        max-width: 320px;
+        line-height: 1.5;
+        margin: 0 0 26px;
+      }
+      #gate button {
+        width: 100%;
+        max-width: 280px;
+        padding: 15px;
+        margin-bottom: 12px;
+        border: none;
+        border-radius: 10px;
+        font-family: var(--font-display, system-ui, sans-serif);
+        font-size: 17px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+      }
+      #gate button.primary {
+        background: var(--accent, #e64f2a);
+        color: var(--on-accent, #152238);
+      }
+      #gate button.secondary {
+        background: transparent;
+        border: 1px solid var(--ground-line, #c3cad4);
+        color: var(--text, #1e2f4d);
+      }
     </style>
   </head>
   <body>
     <div id="game"></div>
+
+    <div id="gate">
+      <span class="brand" id="brand">ARPS</span>
+      <h1 id="gate-title">Registration required</h1>
+      <p id="gate-message">
+        Register with your email to play — it only takes a moment, and you'll get three
+        attempts.
+      </p>
+      <button class="primary" id="gate-register">Register to Play</button>
+      <button class="secondary" id="gate-leaderboard">View Leaderboard</button>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

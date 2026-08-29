@@ -63,9 +63,9 @@ not to hide the score — it is to make an unearned one **fail validation**.
 ### The flow
 
 1. **Registration.** Player submits the form while still on decent connectivity. The server
-   creates the player record and issues **all three play tokens at once** — each carrying a
-   `seed`, an `attempt_no`, an expiry at the end of the competition window, and an HMAC
-   signature over those fields.
+   creates the player record and issues **all three play tokens at once** — each a signed
+   capability string, `<tokenId>.<hmac(tokenId)>`, with the `seed` and `attempt_no` it belongs
+   to held server-side against `tokenId`, not embedded in the string itself.
 
    Issuing all three up front is deliberate: it means a player who loses signal after
    registering can still complete all three runs offline. See branch 6.
@@ -73,26 +73,35 @@ not to hide the score — it is to make an unearned one **fail validation**.
 2. **Play.** The game runs the deterministic sim from `/packages/sim` at a fixed 60 Hz using
    the token's seed. It records every input as `{ frame, type }`.
 
-3. **Submit.** On game over the client POSTs `{ token, signature, inputLog, claimedScore, durationFrames }`.
+3. **Submit.** On game over the client POSTs `{ token, inputLog, claimedScore, durationFrames }`.
 
 4. **Validate.** The `submit-run` Edge Function:
-   - verifies the HMAC signature
-   - confirms the token is unused, unexpired, and belongs to that player
+   - recomputes the HMAC over the token's `tokenId` and rejects a mismatch outright
+   - looks up that `tokenId`, confirms it is unused and unexpired
+   - claims it (`used_at`) with a guard that only the first concurrent request wins — a
+     retried request on flaky venue wifi is the realistic case this defends, not an attacker
    - **re-runs `simulate(seed, inputLog)` server-side** using the identical module
    - compares the result to `claimedScore`
 
 5. **Record.** Match → `status = 'verified'`, `verified_score` stored. Mismatch →
-   `status = 'rejected'` and flagged in the admin view. Token marked used either way, so a
-   rejected run burns an attempt.
+   `status = 'rejected'`. Token claimed either way, so a rejected run burns an attempt.
 
 **Only `verified_score` ever reaches the leaderboard.** A forged score is not merely
 detected, it is structurally incapable of ranking.
+
+**Built and proven** — not just designed. Against a real local Supabase stack (Postgres,
+PostgREST, Edge Functions, all in Docker — `supabase/`), a genuine run played through the
+actual Phaser client replayed to an identical score server-side; a claimed score edited to
+`999999` before submission was rejected while still burning the attempt; a token with its
+signature tampered was rejected before the database was ever touched; replaying an
+already-used token was rejected with no second write. See the README's "Registration &
+attempts" section for how to run this locally.
 
 ### Why this is cheap here
 
 Pour Line's entire input history is a list of press and release events — a few hundred bytes
 per run. The sim is already isolated and deterministic because branch 3 required it. The
-validation function is a dozen lines wrapping an existing module. This is roughly a day's
+validation function is a dozen lines wrapping an existing module. This was roughly a day's
 work for by far the strongest anti-cheat available.
 
 ### Plausibility flags
@@ -198,5 +207,7 @@ rotate it after the event, and don't put it in a group chat that outlives the ev
 - Prize value drives how much of this is proportionate. If the prize is significant, revisit
   stand-issued codes. Tracked in [CLIENT-REQUIREMENTS.md](../../CLIENT-REQUIREMENTS.md).
 - How many finalists play the live final — follows from the prize structure.
-- The demo credential's exact server-side shape (see above) should be decided alongside the
-  rest of the token/`submit-run` design, not bolted on afterward.
+- The demo credential's exact server-side shape (see above) is still not built — the token
+  and `submit-run` design shipped without it, on purpose (the client-only bypass never calls
+  `submit-run` at all, so there was nothing to retrofit). If a more integrated staff flow is
+  ever wanted, design it as an addition to what exists now, not a rework.

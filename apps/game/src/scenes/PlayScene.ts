@@ -16,6 +16,7 @@ import {
 } from '@pourline/sim';
 import type { InputEvent, Mould, SimState } from '@pourline/sim';
 import { isDemoMode } from '../demo.ts';
+import { nextToken } from '../session.ts';
 import { css, theme } from '../theme/theme.ts';
 
 /** Largest catch-up allowed after a stall, so a backgrounded tab can't fast-forward a run. */
@@ -28,6 +29,8 @@ export class PlayScene extends Phaser.Scene {
   private seed = 1;
   /** Snapshot at run start so a mid-run localStorage change can't retag a run. */
   private demo = false;
+  /** The server-issued play token for this run, or null in demo mode. */
+  private token: string | null = null;
 
   private acc = 0;
   /** Frames of deliberate freeze after a spill. Sells the mistake. */
@@ -45,11 +48,32 @@ export class PlayScene extends Phaser.Scene {
     super('Play');
   }
 
-  init(data: { seed?: number; demo?: boolean }): void {
-    // In the real game this seed arrives inside a signed, server-issued play
-    // token. Until then it is random per run, which is fine for tuning.
-    this.seed = data.seed ?? Math.floor(Math.random() * 2 ** 31);
+  init(data: { seed?: number; demo?: boolean; token?: string } = {}): void {
     this.demo = data.demo ?? isDemoMode();
+
+    if (this.demo) {
+      // Demo runs never touch the attempts system — a random seed, no token,
+      // never submitted. See ResultsScene, which skips submission entirely
+      // when demo is true.
+      this.seed = data.seed ?? Math.floor(Math.random() * 2 ** 31);
+      this.token = null;
+    } else if (data.token) {
+      // Explicit hand-off (currently unused by any caller, but kept so a
+      // future flow — e.g. main.ts choosing a specific attempt — doesn't have
+      // to fight the fallback below).
+      this.seed = data.seed ?? 0;
+      this.token = data.token;
+    } else {
+      // The normal path, including "Pour Again": look up whatever the next
+      // unused attempt actually is. main.ts only ever boots the game at all
+      // when this is non-null (see the #gate check there) — if it's ever null
+      // here regardless, ResultsScene's "no active attempt" branch is what
+      // catches it, not a crash.
+      const t = nextToken();
+      this.seed = t?.seed ?? 0;
+      this.token = t?.token ?? null;
+    }
+
     this.state = createState(this.seed);
     this.log = [];
     this.cursor = { i: 0 };
@@ -200,6 +224,7 @@ export class PlayScene extends Phaser.Scene {
           log: this.log,
           seed: this.seed,
           demo: this.demo,
+          token: this.token,
         });
       });
     }
@@ -234,6 +259,8 @@ export class PlayScene extends Phaser.Scene {
       moulds: this.state.moulds.length,
       underChute: m ? { kind: m.kind, fill: Number(m.fill.toFixed(1)), target: m.target } : null,
       over: this.state.over,
+      demo: this.demo,
+      hasToken: this.token !== null,
     };
   }
 

@@ -122,6 +122,20 @@
         animation: pulse 2.2s ease-out infinite;
       }
 
+      #play-nav {
+        margin-left: 6px;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-family: var(--font-display, system-ui, sans-serif);
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+      }
+
       /* --good-glow / --good-glow-clear are the same theme.colors.good hue at
          two alpha levels, computed in main.ts — not a literal here. */
       @keyframes pulse {
@@ -336,6 +350,7 @@
         <span id="updated-text">Loading…</span>
         <span aria-hidden="true">·</span>
         <span id="count-text"></span>
+        <button id="play-nav" type="button">Play</button>
       </div>
     </header>
 

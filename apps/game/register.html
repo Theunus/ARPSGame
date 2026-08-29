@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="theme-color" content="#f0f2f5" />
+    <title>Pour Line — Enter</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background: var(--bg, #f0f2f5);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        font-family: var(--font-body, system-ui, sans-serif);
+        display: flex;
+        justify-content: center;
+        padding: clamp(20px, 6vw, 56px) 20px 60px;
+        box-sizing: border-box;
+      }
+
+      main {
+        width: 100%;
+        max-width: 440px;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 28px;
+      }
+
+      .brand {
+        font-family: var(--font-display, system-ui, sans-serif);
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.28em;
+        margin-right: -0.28em;
+        color: var(--accent);
+        display: block;
+      }
+
+      h1 {
+        font-family: var(--font-display, system-ui, sans-serif);
+        font-size: 30px;
+        letter-spacing: 0.05em;
+        margin: 10px 0 0;
+      }
+
+      .tagline {
+        color: var(--text-dim);
+        margin-top: 6px;
+        font-size: 15px;
+      }
+
+      .card {
+        background: var(--bg-accent);
+        border: 1px solid var(--ground-line);
+        border-radius: 16px;
+        padding: 26px 24px;
+      }
+
+      label {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        margin: 18px 0 6px;
+      }
+
+      label.first {
+        margin-top: 0;
+      }
+
+      input[type='text'],
+      input[type='email'],
+      input[type='tel'] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--ground-line);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 16px;
+        font-family: inherit;
+      }
+
+      input:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+
+      .hint {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-top: 4px;
+      }
+
+      .check-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .check-row input[type='checkbox'] {
+        width: 20px;
+        height: 20px;
+        flex: none;
+        margin-top: 1px;
+        accent-color: var(--accent);
+      }
+
+      .check-row label {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 1.4;
+      }
+
+      .check-row.optional label {
+        color: var(--text-dim);
+      }
+
+      button {
+        display: block;
+        width: 100%;
+        margin-top: 24px;
+        padding: 15px;
+        border: none;
+        border-radius: 10px;
+        background: var(--accent);
+        color: var(--on-accent);
+        font-family: var(--font-display, system-ui, sans-serif);
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      button.secondary {
+        background: transparent;
+        border: 1px solid var(--ground-line);
+        color: var(--text);
+        margin-top: 12px;
+      }
+
+      .error {
+        background: var(--bg);
+        border: 1px solid var(--danger);
+        color: var(--danger);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 14px;
+        margin-top: 16px;
+        display: none;
+      }
+
+      .status {
+        text-align: center;
+      }
+
+      .status .score-like {
+        font-family: var(--font-display, system-ui, sans-serif);
+        font-size: 44px;
+        font-weight: 800;
+        margin: 6px 0 2px;
+      }
+
+      .status .attempts-label {
+        color: var(--text-dim);
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      .status .exhausted {
+        color: var(--danger);
+        font-weight: 700;
+        margin: 10px 0 4px;
+      }
+
+      .switch-link {
+        text-align: center;
+        margin-top: 18px;
+        font-size: 13px;
+      }
+
+      .switch-link a {
+        color: var(--text-dim);
+        text-decoration: underline;
+        cursor: pointer;
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 22px;
+      }
+
+      footer a {
+        color: var(--text-dim);
+        font-size: 13px;
+        text-decoration: none;
+        border-bottom: 1px dotted var(--text-dim);
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="brand" id="brand">ARPS</span>
+        <h1 id="wordmark">POUR LINE</h1>
+        <p class="tagline">Enter your details for a chance to win.</p>
+      </header>
+
+      <div class="card">
+        <!-- Registration form: shown to anyone with no cached session. -->
+        <form id="form">
+          <label class="first" for="fullName">Full name</label>
+          <input type="text" id="fullName" name="fullName" autocomplete="name" required />
+
+          <label for="email">Email address</label>
+          <input type="email" id="email" name="email" autocomplete="email" required />
+          <div class="hint">We'll only use this to contact you if you win.</div>
+
+          <label for="phone">Phone number <span style="font-weight: 400">(optional)</span></label>
+          <input type="tel" id="phone" name="phone" autocomplete="tel" />
+
+          <div class="check-row">
+            <input type="checkbox" id="consentCompetition" required />
+            <label for="consentCompetition">
+              I agree that ARPS may process my details to run this competition, verify my
+              entries and contact me if I win, and I confirm I am 18 or older.
+            </label>
+          </div>
+
+          <div class="check-row optional">
+            <input type="checkbox" id="consentMarketing" />
+            <label for="consentMarketing">
+              I'd also like ARPS to contact me about their products and services. I can
+              unsubscribe at any time.
+            </label>
+          </div>
+
+          <div class="error" id="formError"></div>
+
+          <button type="submit" id="submitButton">Register &amp; Play</button>
+        </form>
+
+        <!-- Returning-player / status view: shown instead of the form when a
+             cached session exists. Populated by src/register/main.ts. -->
+        <div class="status" id="status" hidden>
+          <p class="attempts-label">Welcome back</p>
+          <p class="score-like" id="statusName">—</p>
+          <p id="statusAttempts"></p>
+          <button id="playButton">Play</button>
+          <p id="exhaustedNote" class="exhausted" hidden>
+            You've used all 3 of your attempts — good luck!
+          </p>
+          <button class="secondary" id="leaderboardButton" type="button">View Leaderboard</button>
+          <p class="switch-link"><a id="notYouLink">Not you? Register a different entry</a></p>
+        </div>
+      </div>
+
+      <footer>
+        <a href="leaderboard.html">View the live leaderboard</a>
+      </footer>
+    </main>
+
+    <script type="module" src="/src/register/main.ts"></script>
+  </body>
+</html>

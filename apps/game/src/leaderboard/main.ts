@@ -1,4 +1,4 @@
-import { css, cssRgba, theme } from '../theme/theme.ts';
+import { applyBrandText, applyThemeVars } from '../theme/cssVars.ts';
 import { fetchLeaderboard } from './data.ts';
 import type { LeaderboardRow } from './types.ts';
 
@@ -18,41 +18,6 @@ import type { LeaderboardRow } from './types.ts';
 
 const REFRESH_MS = 15_000;
 const MAX_ROWS = 50;
-
-function applyThemeVars(): void {
-  const root = document.documentElement.style;
-  const c = theme.colors;
-
-  root.setProperty('--bg', css(c.bg));
-  root.setProperty('--bg-accent', css(c.bgAccent));
-  root.setProperty('--ground-line', css(c.groundLine));
-  root.setProperty('--formwork', css(c.formwork));
-  root.setProperty('--formwork-dim', css(c.formworkDim));
-  root.setProperty('--text', css(c.text));
-  root.setProperty('--text-dim', css(c.textDim));
-  root.setProperty('--good', css(c.good));
-  root.setProperty('--accent', css(c.accent));
-  root.setProperty('--on-accent', css(c.onAccent));
-  root.setProperty('--rank-gold', css(c.rankGold));
-  root.setProperty('--rank-silver', css(c.rankSilver));
-  root.setProperty('--rank-bronze', css(c.rankBronze));
-
-  root.setProperty('--font-display', theme.fonts.display);
-  root.setProperty('--font-body', theme.fonts.body);
-
-  // Row striping as a text-tinted alpha rather than a hardcoded white overlay,
-  // so it stays correct if the theme ever flips light (white-alpha would vanish
-  // on a light ground; text-alpha tracks the theme in both directions).
-  root.setProperty('--row-alt', cssRgba(c.text, 0.035));
-
-  // Alpha variants for the CSS animations that fade a brand colour rather than
-  // show it flat — computed here so the literal only exists once, in theme.ts.
-  root.setProperty('--good-glow', cssRgba(c.good, 0.55));
-  root.setProperty('--good-glow-clear', cssRgba(c.good, 0));
-  root.setProperty('--accent-flash', cssRgba(c.accent, 0.22));
-  root.setProperty('--accent-faint', cssRgba(c.accent, 0.06));
-  root.setProperty('--formwork-faint', cssRgba(c.formwork, 0.05));
-}
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -183,14 +148,11 @@ async function refresh(isFirst: boolean): Promise<void> {
 }
 
 applyThemeVars();
-byId<HTMLElement>('wordmark').textContent = theme.wordmark;
+applyBrandText();
 
-const brandEl = byId<HTMLElement>('brand');
-if (theme.brand) {
-  brandEl.textContent = theme.brand;
-} else {
-  brandEl.remove();
-}
+byId<HTMLButtonElement>('play-nav').addEventListener('click', () => {
+  window.location.href = 'register.html';
+});
 
 void refresh(true);
 setInterval(() => void refresh(false), REFRESH_MS);

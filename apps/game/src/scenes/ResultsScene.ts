@@ -1,16 +1,24 @@
 import Phaser from 'phaser';
 import { TICK_HZ, WORLD_H, WORLD_W, toResult, verifyRun } from '@pourline/sim';
 import type { InputEvent, SimState } from '@pourline/sim';
+import { ApiError, submitRun } from '../api.ts';
+import { consumeToken, nextToken } from '../session.ts';
 import { css, theme } from '../theme/theme.ts';
+
+const CLIENT_VERSION = 'pourline-web-1';
 
 interface ResultsData {
   state: SimState;
   log: InputEvent[];
   seed: number;
   demo: boolean;
+  /** Absent only if main.ts somehow let a non-demo run start with no attempt — see PlayScene. */
+  token?: string | null;
 }
 
 export class ResultsScene extends Phaser.Scene {
+  private statusText!: Phaser.GameObjects.Text;
+
   constructor() {
     super('Results');
   }
@@ -101,8 +109,119 @@ export class ResultsScene extends Phaser.Scene {
       y += 46;
     }
 
-    this.drawReplayCheck(data, result.score, y + 28);
-    this.addPlayAgain(data.demo);
+    y += 24;
+
+    if (data.demo) {
+      // Real players get real server verification below instead — this panel
+      // is a tuning/dev tool (see drawReplayCheck) that would just be clutter
+      // and unexplained jargon on a real competitive result.
+      this.drawReplayCheck(data, result.score, y);
+      this.renderFooter(data.demo);
+      return;
+    }
+
+    if (!data.token) {
+      // Shouldn't happen — main.ts only ever starts a non-demo run with a
+      // real token — but fail safely rather than pretend a score was saved.
+      this.statusText = this.add
+        .text(WORLD_W / 2, y, 'No active attempt — this score could not be saved.', {
+          fontFamily: theme.fonts.body,
+          fontSize: '17px',
+          color: css(c.danger),
+          align: 'center',
+          wordWrap: { width: WORLD_W - 100 },
+        })
+        .setOrigin(0.5, 0);
+      this.renderFooter(false);
+      return;
+    }
+
+    this.statusText = this.add
+      .text(WORLD_W / 2, y, 'Submitting score…', {
+        fontFamily: theme.fonts.body,
+        fontSize: '17px',
+        color: css(c.textDim),
+        align: 'center',
+      })
+      .setOrigin(0.5, 0);
+
+    void this.submitAndSettle(data, result.score, result.frames);
+  }
+
+  /**
+   * The actual anti-cheat handoff: send the token and the recorded input log
+   * to submit-run, which replays them server-side with the same
+   * packages/sim module and only then decides what counts. Whatever comes
+   * back, the token is spent — either the server confirms that (ok:true or
+   * ok:false), or the request never arrived and the token stays usable so a
+   * retry can still go through.
+   */
+  private async submitAndSettle(data: ResultsData, claimedScore: number, durationFrames: number): Promise<void> {
+    const token = data.token as string;
+    try {
+      const res = await submitRun({
+        token,
+        inputLog: data.log,
+        claimedScore,
+        durationFrames,
+        clientVersion: CLIENT_VERSION,
+      });
+
+      consumeToken(token);
+
+      const c = theme.colors;
+      if (res.ok) {
+        this.statusText.setText('Score saved ✓');
+        this.statusText.setColor(css(c.good));
+      } else {
+        this.statusText.setText(`Not saved — ${res.reason ?? 'verification failed'}`);
+        this.statusText.setColor(css(c.danger));
+      }
+      this.renderFooter(false);
+    } catch (err) {
+      const c = theme.colors;
+      if (err instanceof ApiError && err.status === 0) {
+        // Network failure only — the token was never claimed server-side, so
+        // it's still good. No offline queue yet (see Grill-Me-6); this is the
+        // honest, retryable stand-in for it.
+        this.statusText.setText("Couldn't reach the server — your attempt hasn't been used yet.");
+        this.statusText.setColor(css(c.danger));
+        this.renderRetry(data, claimedScore, durationFrames);
+      } else {
+        // The server responded but something else went wrong (bad/expired
+        // token, already submitted). Treat it as spent either way — safer
+        // than silently offering another play the server will just reject.
+        consumeToken(token);
+        this.statusText.setText(`Couldn't save this score — ${(err as Error).message}`);
+        this.statusText.setColor(css(c.danger));
+        this.renderFooter(false);
+      }
+    }
+  }
+
+  private renderRetry(data: ResultsData, claimedScore: number, durationFrames: number): void {
+    const c = theme.colors;
+    const y = WORLD_H - 210;
+    const button = this.add
+      .rectangle(WORLD_W / 2, y, 220, 60, c.formworkDim)
+      .setInteractive({ useHandCursor: true });
+    const label = this.add
+      .text(WORLD_W / 2, y, 'RETRY', {
+        fontFamily: theme.fonts.display,
+        fontSize: '22px',
+        fontStyle: 'bold',
+        color: css(c.text),
+        letterSpacing: 2,
+      })
+      .setOrigin(0.5);
+
+    button.on('pointerup', () => {
+      button.destroy();
+      label.destroy();
+      this.statusText.setText('Submitting score…');
+      this.statusText.setColor(css(c.textDim));
+      void this.submitAndSettle(data, claimedScore, durationFrames);
+    });
   }
 
   /**
@@ -139,12 +258,8 @@ export class ResultsScene extends Phaser.Scene {
 
   /**
    * Development readout: replays the run the way the server will and shows
-   * whether it reproduces.
-   *
-   * Not security — a client verifying itself proves nothing, and this panel comes
-   * out before launch. It is here because a determinism regression is silent
-   * otherwise, and seeing it fail during tuning is far cheaper than discovering
-   * it when a finalist's score won't validate on event day.
+   * whether it reproduces. Demo mode only now — real players get the actual
+   * server verification above instead of a debug panel.
    */
   private drawReplayCheck(data: ResultsData, score: number, y: number): void {
     const c = theme.colors;
@@ -177,37 +292,85 @@ export class ResultsScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
   }
 
-  private addPlayAgain(demo: boolean): void {
+  /**
+   * The primary call to action, decided by whether an attempt is actually
+   * left — never just "unlimited", except in demo mode. Only called once the
+   * real post-submission attempts count is known (or in demo mode, where
+   * there's nothing to wait on).
+   */
+  private renderFooter(demo: boolean): void {
     const c = theme.colors;
-    const y = WORLD_H - 130;
+    const y = WORLD_H - 160;
 
+    const remaining = demo ? Infinity : (nextToken() ? 1 : 0);
+    const canPlayAgain = demo || remaining > 0;
+    let leaderboardY = y + 72;
+
+    if (canPlayAgain) {
+      const button = this.add
+        .rectangle(WORLD_W / 2, y, WORLD_W - 140, 84, c.accent)
+        .setInteractive({ useHandCursor: true });
+      this.add
+        .text(WORLD_W / 2, y, 'POUR AGAIN', {
+          fontFamily: theme.fonts.display,
+          fontSize: '32px',
+          fontStyle: 'bold',
+          color: css(c.onAccent),
+          letterSpacing: 3,
+        })
+        .setOrigin(0.5);
+
+      // Only demo mode gets a caption here — it carries information the
+      // button alone doesn't ("unlimited, never saved"). For a real player
+      // "POUR AGAIN" already says everything, and the extra line left no
+      // room for the leaderboard button below it without the two colliding.
+      if (demo) {
+        this.add
+          .text(WORLD_W / 2, y + 56, 'demo mode — unlimited replays, never saved', {
+            fontFamily: theme.fonts.body,
+            fontSize: '16px',
+            color: css(c.textDim),
+          })
+          .setOrigin(0.5);
+        leaderboardY = y + 100;
+      }
+
+      button.on('pointerup', () => this.scene.start('Play', { demo }));
+    } else {
+      this.add
+        .text(WORLD_W / 2, y - 10, "You've used all 3 attempts — good luck!", {
+          fontFamily: theme.fonts.body,
+          fontSize: '19px',
+          fontStyle: 'bold',
+          color: css(c.textDim),
+          align: 'center',
+          wordWrap: { width: WORLD_W - 100 },
+        })
+        .setOrigin(0.5);
+      leaderboardY = y + 70;
+    }
+
+    this.addLeaderboardLink(leaderboardY);
+  }
+
+  private addLeaderboardLink(y: number): void {
+    const c = theme.colors;
     const button = this.add
-      .rectangle(WORLD_W / 2, y, WORLD_W - 140, 84, c.accent)
+      .rectangle(WORLD_W / 2, y, WORLD_W - 140, 64, c.bgAccent)
+      .setStrokeStyle(1, c.groundLine)
       .setInteractive({ useHandCursor: true });
     this.add
-      .text(WORLD_W / 2, y, 'POUR AGAIN', {
+      .text(WORLD_W / 2, y, 'VIEW LEADERBOARD', {
         fontFamily: theme.fonts.display,
-        fontSize: '32px',
+        fontSize: '20px',
         fontStyle: 'bold',
-        color: css(c.onAccent),
-        letterSpacing: 3,
+        color: css(c.text),
+        letterSpacing: 2,
       })
       .setOrigin(0.5);
 
-    // Attempts are unlimited here on purpose. The three-attempt limit will be
-    // enforced server-side against a normalised email — never in the client,
-    // where it would be one devtools call away from meaningless. Demo mode
-    // gets its own honest caption rather than implying a limit that, for this
-    // device, does not apply.
-    this.add
-      .text(
-        WORLD_W / 2,
-        y + 68,
-        demo ? 'demo mode — unlimited replays, never saved' : 'attempt limits are enforced server-side',
-        { fontFamily: theme.fonts.body, fontSize: '18px', color: css(c.textDim) },
-      )
-      .setOrigin(0.5);
-
-    button.on('pointerup', () => this.scene.start('Play', { demo }));
+    button.on('pointerup', () => {
+      window.location.href = 'leaderboard.html';
+    });
   }
 }
