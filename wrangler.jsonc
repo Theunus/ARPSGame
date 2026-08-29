@@ -1,0 +1,10 @@
+{
+  // Deploys the built game as a static site (Cloudflare Workers static assets).
+  // `wrangler deploy` runs from the repo root; this points it at the Vite build
+  // output and resolves the "which app in the workspace" error.
+  "name": "arps-pour-line",
+  "compatibility_date": "2025-01-01",
+  "assets": {
+    "directory": "apps/game/dist"
+  }
+}
