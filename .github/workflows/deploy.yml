@@ -1,0 +1,47 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        # These are public (the anon key is meant to be exposed, and the URL is
+        # not a secret). Baked in here so the deploy can't be broken by a typo in
+        # a dashboard field. Move to `${{ vars.* }}` repo variables if preferred.
+        env:
+          VITE_SUPABASE_URL: https://vppupixwusgmxnswmvbp.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwcHVwaXh3dXNnbXhuc3dtdmJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc5ODY2NzUsImV4cCI6MjEwMzU2MjY3NX0.G67Ls9BmaMK4BlgwlvmIqUj2g6ZoDe-1AWIaYhfMDC4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/game/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
