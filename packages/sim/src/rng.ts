@@ -1,10 +1,4 @@
-/**
- * Deterministic PRNG (mulberry32).
- *
- * `Math.random` is banned inside this package — it would make server-side replay
- * validation impossible. Every random decision in the sim comes from here, seeded
- * by the server-issued play token.
- */
+/** Deterministic PRNG (mulberry32) — the sim's only source of randomness. */
 
 /** Advances the state and returns a float in [0, 1). */
 export function nextFloat(state: number): { state: number; value: number } {
@@ -16,20 +10,7 @@ export function nextFloat(state: number): { state: number; value: number } {
   return { state: next, value };
 }
 
-/** Integer in [min, max] inclusive. */
-export function nextInt(
-  state: number,
-  min: number,
-  max: number,
-): { state: number; value: number } {
-  const r = nextFloat(state);
-  return { state: r.state, value: min + Math.floor(r.value * (max - min + 1)) };
-}
-
-/**
- * Weighted pick. `weights` must be the same length as `items` and sum to > 0.
- * Falls back to the last item, which is only reachable via float rounding.
- */
+/** Weighted pick; `weights` matches `items` in length and sums to > 0. */
 export function nextWeighted<T>(
   state: number,
   items: readonly T[],

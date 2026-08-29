@@ -3,22 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Mirrors theme.colors.bg (ARPS light grey). The one place a colour literal
-         is unavoidable: it paints the browser chrome before any script runs. -->
+    <!-- Mirrors theme.colors.bg; paints the browser chrome before JS runs. -->
     <meta name="theme-color" content="#f0f2f5" />
     <title>Pour Line — Leaderboard</title>
     <style>
-      /* Colour values are set as custom properties from theme.ts at runtime
-         (src/leaderboard/main.ts) — this file has no colour literals of its
-         own beyond the boot-background fallback, same rule as the rest of the
-         app. */
+      /* Colours come from CSS custom properties set by main.ts from theme.ts. */
       html,
       body {
         margin: 0;
         padding: 0;
         height: 100%;
-        /* Fallback mirrors theme.colors.bg, only visible for the instant before
-           main.ts sets --bg. */
+        /* Fallback only shows for the instant before main.ts sets --bg. */
         background: var(--bg, #f0f2f5);
         color: var(--text);
         overflow: hidden;
@@ -59,8 +54,7 @@
       }
 
       header,
-      .board,
-      footer {
+      .board {
         position: relative;
         z-index: 1;
       }
@@ -85,8 +79,7 @@
         font-size: clamp(22px, 2.4vw, 34px);
         font-weight: 800;
         letter-spacing: 0.28em;
-        /* letter-spacing adds trailing space after the last glyph; pull the
-           next item back so the gap reads even. */
+        /* Pull the next item back to offset letter-spacing's trailing gap. */
         margin-right: -0.28em;
         color: var(--accent);
       }
@@ -109,21 +102,12 @@
       .status {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 16px;
         font-size: clamp(13px, 1.2vw, 16px);
         color: var(--text-dim);
       }
 
-      .status .dot {
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        background: var(--good);
-        animation: pulse 2.2s ease-out infinite;
-      }
-
       #play-nav {
-        margin-left: 6px;
         padding: 8px 20px;
         border: none;
         border-radius: 8px;
@@ -134,20 +118,6 @@
         font-weight: 800;
         letter-spacing: 0.06em;
         cursor: pointer;
-      }
-
-      /* --good-glow / --good-glow-clear are the same theme.colors.good hue at
-         two alpha levels, computed in main.ts — not a literal here. */
-      @keyframes pulse {
-        0% {
-          box-shadow: 0 0 0 0 var(--good-glow);
-        }
-        70% {
-          box-shadow: 0 0 0 10px var(--good-glow-clear);
-        }
-        100% {
-          box-shadow: 0 0 0 0 var(--good-glow-clear);
-        }
       }
 
       .board {
@@ -215,7 +185,7 @@
         border-radius: 50%;
         font-weight: 800;
         font-size: 0.85em;
-        /* Dark ink, legible on every badge fill in both light and dark themes. */
+        /* Dark ink, legible on every badge fill. */
         color: var(--on-accent);
         background: var(--formwork-dim);
       }
@@ -250,16 +220,7 @@
         color: var(--text-dim);
       }
 
-      footer {
-        margin-top: clamp(12px, 1.6vw, 20px);
-        display: flex;
-        justify-content: space-between;
-        font-size: clamp(12px, 1vw, 14px);
-        color: var(--text-dim);
-      }
-
-      /* Entrance: rows stagger in on first paint so the board doesn't just
-         snap into existence — the one moment of "nice" a static table gets. */
+      /* Rows stagger in on first paint. */
       tbody tr {
         opacity: 0;
         animation: rowIn 420ms ease-out forwards;
@@ -276,8 +237,7 @@
         }
       }
 
-      /* Applied briefly to a row whose rank or score changed on a refresh.
-         --accent-flash is theme.colors.accent at low alpha, from main.ts. */
+      /* Flashes a row whose rank or score changed on a refresh. */
       tr.changed {
         animation: changedFlash 1100ms ease-out;
       }
@@ -306,9 +266,7 @@
       .skeleton-bar {
         height: 1em;
         border-radius: 6px;
-        /* ground-line → formwork-dim → ground-line: a subtle mid-grey sweep that
-           stays a *lighter* shimmer than its base in both themes (using
-           --formwork here would sweep dark navy on the light theme). */
+        /* Subtle mid-grey shimmer sweep. */
         background: linear-gradient(
           90deg,
           var(--ground-line) 25%,
@@ -346,9 +304,6 @@
         <span class="subtitle">Live Leaderboard</span>
       </div>
       <div class="status">
-        <span class="dot"></span>
-        <span id="updated-text">Loading…</span>
-        <span aria-hidden="true">·</span>
         <span id="count-text"></span>
         <button id="play-nav" type="button">Play</button>
       </div>
@@ -370,11 +325,6 @@
         </tbody>
       </table>
     </div>
-
-    <footer>
-      <span>Sample data — not a live competition result</span>
-      <span>Refreshes automatically</span>
-    </footer>
 
     <script type="module" src="/src/leaderboard/main.ts"></script>
   </body>

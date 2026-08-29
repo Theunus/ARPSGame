@@ -1,15 +1,9 @@
 /**
- * The Pour Line simulation.
+ * The Pour Line simulation — the single source of truth for a score, run
+ * unchanged in the browser and on the server for replay verification.
  *
- * This module is the single source of truth for what a score means. It runs
- * unchanged in the browser (rendered by Phaser) and on the server (headless, to
- * re-derive a submitted score from its seed and input log). A score that cannot
- * be reproduced here did not happen.
- *
- * Rules this file must never break:
- *   - fixed timestep, no wall-clock time, no `Date.now`
- *   - no `Math.random` — every random decision comes from `./rng.ts`
- *   - no DOM, no Phaser, no imports outside this package
+ * Must stay deterministic: fixed timestep, no wall-clock time, no Math.random
+ * (all randomness comes from ./rng.ts), no DOM, no imports outside this package.
  */
 
 import {
@@ -59,35 +53,19 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-/**
- * 0 at the start of a run, 1 once full difficulty is reached, then held.
- * Drives scroll speed, spacing and which moulds and mixes appear.
- */
+/** 0 at run start, 1 once full difficulty is reached, then held. */
 function rampProgress(frame: number): number {
   const p = frame / RAMP_FRAMES;
   return p < 0 ? 0 : p > 1 ? 1 : p;
 }
 
-/**
- * The same ramp, deliberately uncapped. Only the judging tolerance uses it, and
- * only because it must keep tightening past full difficulty — see the note in
- * config.ts. Clamping this would let an accurate player survive indefinitely.
- *
- * Scroll speed uses this too, not because tolerance and speed are related, but
- * because both need the same "keep going forever" shape. A single unclamped
- * ramp function serves both rather than inventing a second one that behaves
- * identically.
- */
+/** The ramp uncapped — keeps rising forever, for scroll speed and tolerance. */
 function unboundedProgress(frame: number): number {
   const p = frame / RAMP_FRAMES;
   return p < 0 ? 0 : p;
 }
 
-/**
- * Judging thresholds at a moment in the run, in fill units for a given mould.
- * Exported so the renderer draws exactly the bands the sim scores against —
- * there is no second copy of these numbers anywhere.
- */
+/** Judging thresholds (in fill units) for a mould at a moment in the run. */
 export function toleranceFor(target: number, flow: number, frame: number): Tolerance {
   const tp = unboundedProgress(frame);
   const rp = rampProgress(frame);
@@ -153,11 +131,7 @@ export function createState(seed: number): SimState {
 // Input
 // ---------------------------------------------------------------------------
 
-/**
- * Sets the pour state. Called by the client on touch, and by the replay
- * validator from the recorded log — the same code path in both cases, which is
- * what makes the two agree.
- */
+/** Sets the pour state, recording the release frame. */
 export function setPouring(s: SimState, pouring: boolean): void {
   if (s.pouring === pouring) return;
   s.pouring = pouring;
@@ -187,7 +161,7 @@ export function validateInputLog(log: readonly InputEvent[]): { ok: boolean; rea
 // Stepping
 // ---------------------------------------------------------------------------
 
-/** The mould currently receiving concrete, if any. Also used by the renderer and bots. */
+/** The mould currently under the chute, if any. */
 export function mouldUnderChute(s: SimState): Mould | null {
   for (const m of s.moulds) {
     if (m.evaluated) continue;
@@ -196,18 +170,12 @@ export function mouldUnderChute(s: SimState): Mould | null {
   return null;
 }
 
-/**
- * Concrete lands in whatever mould is under the chute *now*, not the one that
- * was there when it left the chute. That is physically right, and on fast scroll
- * it quietly punishes pouring too late.
- */
+/** Deposits landed concrete into whatever mould is under the chute now, or the ground. */
 function deliver(s: SimState, amount: number): void {
   const m = mouldUnderChute(s);
 
   if (!m) {
-    // Concrete landing with no mould under the chute — spilled on the ground,
-    // ahead of (or behind) the form. A brief bleed is forgiven; a sustained
-    // stream past the limit costs a strike.
+    // No mould: spilled on the ground. A sustained stream past the limit strikes.
     s.wasted += amount;
     s.groundSpill += amount;
     if (!s.over && s.groundSpill > GROUND_SPILL_LIMIT) registerGroundSpill(s);
@@ -215,13 +183,11 @@ function deliver(s: SimState, amount: number): void {
   }
 
   if (m.spilled) {
-    // The mould already overflowed and took its strike — further concrete is
-    // just waste, not a second strike.
+    // Already overflowed and struck — further concrete is just waste.
     s.wasted += amount;
     return;
   }
 
-  // Back on target: landing in a live mould clears the ground-spill streak.
   s.groundSpill = 0;
   m.fill += amount;
 
@@ -232,11 +198,7 @@ function deliver(s: SimState, amount: number): void {
   }
 }
 
-/**
- * A spill with no mould involved — poured on the ground. Mirrors the strike
- * bookkeeping in registerOutcome, but emits a spill event with no mouldId so
- * the renderer shows it at the chute rather than on a form.
- */
+/** Records a ground spill: reset combo, emit a mould-less spill event, add a strike. */
 function registerGroundSpill(s: SimState): void {
   s.combo = 0;
   s.groundSpill = 0;
@@ -253,8 +215,7 @@ function evaluate(s: SimState, m: Mould): void {
   const tol = toleranceFor(m.target, MIXES[s.mix].flow, s.frame);
   const delta = m.fill - m.target;
 
-  // Order matters: the miss floor rises past the good band late in a run, so it
-  // has to be checked before the softer tiers or it would never fire.
+  // Miss must be checked first: its floor rises past the good band late in a run.
   let outcome: PourOutcome;
   if (delta < -tol.missUnder) {
     outcome = 'miss';
@@ -369,8 +330,7 @@ export function step(s: SimState): void {
   s.events.length = 0;
 
   const progress = rampProgress(s.frame);
-  // Unbounded on purpose — speed never plateaus, so a run only ends when the
-  // player runs out of skill, not when a timer does. See config.ts.
+  // Speed is unbounded — it never plateaus, so a run ends on skill, not a timer.
   const speed = SCROLL_SPEED_START + SCROLL_SPEED_PER_RAMP * unboundedProgress(s.frame);
   const gap = lerp(GAP_START, GAP_END, progress);
   const mix = MIXES[s.mix];
@@ -385,16 +345,14 @@ export function step(s: SimState): void {
     deliver(s, arrived);
   }
 
-  // 2. This frame's pour enters the delay line. The gap between 1 and 2 is the
-  //    tail — the reason you have to release early.
+  // 2. This frame's pour enters the delay line — the tail lands `tail` frames later.
   if (s.pouring) {
     const landSlot = (s.frame + mix.tail) % s.delayLen;
     s.delay[landSlot] = (s.delay[landSlot] ?? 0) + mix.flow;
     s.inFlight += mix.flow;
   }
 
-  // 3. A mix change waits for an idle chute, so a pour in progress is never
-  //    disturbed by the flow rate changing under the player's thumb.
+  // 3. A queued mix change waits for an idle chute so a live pour isn't disturbed.
   if (s.pendingMix && !s.pouring && s.inFlight <= EPSILON && !mouldUnderChute(s)) {
     s.mix = s.pendingMix;
     s.pendingMix = null;
@@ -405,8 +363,7 @@ export function step(s: SimState): void {
   for (const m of s.moulds) m.x -= speed;
   s.nextSpawnX -= speed;
 
-  // 5. Judge anything that has fully passed the chute. Feedback lands the moment
-  //    the mould clears, not when it leaves the screen.
+  // 5. Judge any mould that has fully passed the chute.
   for (const m of s.moulds) {
     if (!m.evaluated && m.x + m.width < CHUTE_X) evaluate(s, m);
   }
@@ -427,12 +384,7 @@ export function step(s: SimState): void {
   }
 }
 
-/**
- * Advances one frame, first applying every input event stamped for it.
- *
- * The client uses this too, feeding the same log it will later submit — so the
- * run the player sees and the run the server re-derives are the same execution.
- */
+/** Advances one frame, first applying every input event stamped for it. */
 export function stepWithLog(s: SimState, log: readonly InputEvent[], cursor: { i: number }): void {
   while (cursor.i < log.length) {
     const ev = log[cursor.i];
@@ -442,10 +394,6 @@ export function stepWithLog(s: SimState, log: readonly InputEvent[], cursor: { i
   }
   step(s);
 }
-
-// ---------------------------------------------------------------------------
-// Headless replay — this is what the server runs
-// ---------------------------------------------------------------------------
 
 export function toResult(s: SimState): SimResult {
   return {
@@ -473,10 +421,7 @@ export interface VerifyOutcome {
   result?: SimResult;
 }
 
-/**
- * The server-side gate. A submitted score is accepted only if replaying the
- * player's own inputs against their server-issued seed produces it exactly.
- */
+/** Accepts a score only if replaying seed + log reproduces it exactly. */
 export function verifyRun(
   seed: number,
   log: readonly InputEvent[],

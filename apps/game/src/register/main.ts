@@ -1,12 +1,4 @@
-/**
- * Registration / attempts gate — apps/game/register.html.
- *
- * This is the actual link the QR code points at. It either shows the entry
- * form (new player), or — if this device already has a cached session — skips
- * straight to "you have N attempts left" / "you've used all three". Either
- * way, the server's response is what decides whether Play is offered; the
- * cached session is a display convenience, never the enforcement.
- */
+/** Registration form and returning-player status view for register.html. */
 import { ApiError, register } from '../api.ts';
 import { clearSession, loadSession, nextToken, saveSession } from '../session.ts';
 import { applyBrandText, applyThemeVars } from '../theme/cssVars.ts';
@@ -89,15 +81,11 @@ form.addEventListener('submit', async (e) => {
       email,
       phone: phone || undefined,
       consentCompetition,
-      // Competition-only by decision — no separate marketing opt-in is
-      // collected, so there is nothing to send but false. See Grill-Me-5.
-      consentMarketing: false,
-      isAdult: consentCompetition, // the single checkbox covers both, per the form copy
+      isAdult: consentCompetition,
       consentVersion: CONSENT_VERSION,
     });
 
     saveSession({
-      playerId: res.playerId,
       displayName: res.displayName,
       attemptsTotal: res.attemptsTotal,
       tokens: res.tokens,
@@ -135,8 +123,6 @@ notYouLink.addEventListener('click', (e) => {
   form.reset();
   showForm();
 });
-
-// --- boot --------------------------------------------------------------
 
 applyThemeVars();
 applyBrandText();

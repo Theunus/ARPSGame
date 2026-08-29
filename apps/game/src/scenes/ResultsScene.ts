@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TICK_HZ, WORLD_H, WORLD_W, toResult, verifyRun } from '@pourline/sim';
+import { TICK_HZ, WORLD_H, WORLD_W, toResult } from '@pourline/sim';
 import type { InputEvent, SimState } from '@pourline/sim';
 import { ApiError, submitRun } from '../api.ts';
 import { consumeToken, nextToken } from '../session.ts';
@@ -12,7 +12,6 @@ interface ResultsData {
   log: InputEvent[];
   seed: number;
   demo: boolean;
-  /** Absent only if main.ts somehow let a non-demo run start with no attempt — see PlayScene. */
   token?: string | null;
 }
 
@@ -32,8 +31,6 @@ export class ResultsScene extends Phaser.Scene {
 
     let y = 96;
 
-    // ARPS brand eyebrow — widely spaced caps in hazard orange, echoing the
-    // logo's letter-spaced lockup.
     if (theme.brand) {
       this.add
         .text(WORLD_W / 2, y, theme.brand, {
@@ -83,7 +80,6 @@ export class ResultsScene extends Phaser.Scene {
       .setOrigin(0.5);
     y += 74;
 
-    // The brand's underline motif — the orange rule beneath the ARPS wordmark.
     this.add.rectangle(WORLD_W / 2, y, 88, 4, c.accent);
     y += 44;
 
@@ -112,17 +108,11 @@ export class ResultsScene extends Phaser.Scene {
     y += 24;
 
     if (data.demo) {
-      // Real players get real server verification below instead — this panel
-      // is a tuning/dev tool (see drawReplayCheck) that would just be clutter
-      // and unexplained jargon on a real competitive result.
-      this.drawReplayCheck(data, result.score, y);
-      this.renderFooter(data.demo);
+      this.renderFooter(true);
       return;
     }
 
     if (!data.token) {
-      // Shouldn't happen — main.ts only ever starts a non-demo run with a
-      // real token — but fail safely rather than pretend a score was saved.
       this.statusText = this.add
         .text(WORLD_W / 2, y, 'No active attempt — this score could not be saved.', {
           fontFamily: theme.fonts.body,
@@ -149,15 +139,12 @@ export class ResultsScene extends Phaser.Scene {
   }
 
   /**
-   * The actual anti-cheat handoff: send the token and the recorded input log
-   * to submit-run, which replays them server-side with the same
-   * packages/sim module and only then decides what counts. Whatever comes
-   * back, the token is spent — either the server confirms that (ok:true or
-   * ok:false), or the request never arrived and the token stays usable so a
-   * retry can still go through.
+   * Sends the run to submit-run, which replays it server-side and decides what
+   * counts. On a network failure the token is untouched, so a retry is offered.
    */
   private async submitAndSettle(data: ResultsData, claimedScore: number, durationFrames: number): Promise<void> {
     const token = data.token as string;
+    const c = theme.colors;
     try {
       const res = await submitRun({
         token,
@@ -169,7 +156,6 @@ export class ResultsScene extends Phaser.Scene {
 
       consumeToken(token);
 
-      const c = theme.colors;
       if (res.ok) {
         this.statusText.setText('Score saved ✓');
         this.statusText.setColor(css(c.good));
@@ -179,18 +165,12 @@ export class ResultsScene extends Phaser.Scene {
       }
       this.renderFooter(false);
     } catch (err) {
-      const c = theme.colors;
       if (err instanceof ApiError && err.status === 0) {
-        // Network failure only — the token was never claimed server-side, so
-        // it's still good. No offline queue yet (see Grill-Me-6); this is the
-        // honest, retryable stand-in for it.
+        // Never reached the server, so the attempt is still good — let them retry.
         this.statusText.setText("Couldn't reach the server — your attempt hasn't been used yet.");
         this.statusText.setColor(css(c.danger));
         this.renderRetry(data, claimedScore, durationFrames);
       } else {
-        // The server responded but something else went wrong (bad/expired
-        // token, already submitted). Treat it as spent either way — safer
-        // than silently offering another play the server will just reject.
         consumeToken(token);
         this.statusText.setText(`Couldn't save this score — ${(err as Error).message}`);
         this.statusText.setColor(css(c.danger));
@@ -224,11 +204,7 @@ export class ResultsScene extends Phaser.Scene {
     });
   }
 
-  /**
-   * Faint corner triangles echoing the ARPS logo's geometric motif. Low alpha
-   * and pushed into the extreme corners so they read as brand texture behind
-   * the layout, never competing with the score or the button.
-   */
+  /** Faint corner triangles echoing the ARPS logo motif. */
   private drawBrandTriangles(): void {
     const c = theme.colors;
     const g = this.add.graphics();
@@ -256,54 +232,12 @@ export class ResultsScene extends Phaser.Scene {
     tri(WORLD_W - 190, WORLD_H - 64, 96, c.formwork, 0.08, 'br');
   }
 
-  /**
-   * Development readout: replays the run the way the server will and shows
-   * whether it reproduces. Demo mode only now — real players get the actual
-   * server verification above instead of a debug panel.
-   */
-  private drawReplayCheck(data: ResultsData, score: number, y: number): void {
-    const c = theme.colors;
-    const font = 'ui-monospace, SFMono-Regular, Menlo, monospace';
-
-    const started = performance.now();
-    const outcome = verifyRun(data.seed, data.log, score);
-    const took = performance.now() - started;
-
-    const ok = outcome.ok;
-    this.add
-      .text(
-        WORLD_W / 2,
-        y,
-        [
-          ok ? 'replay ✓ reproduces' : 'replay ✗ MISMATCH',
-          `seed ${data.seed}  ·  ${data.log.length} inputs  ·  ${took.toFixed(0)}ms`,
-          ok ? '' : (outcome.reason ?? ''),
-        ]
-          .filter(Boolean)
-          .join('\n'),
-        {
-          fontFamily: font,
-          fontSize: '17px',
-          color: css(ok ? c.good : c.danger),
-          align: 'center',
-          lineSpacing: 6,
-        },
-      )
-      .setOrigin(0.5, 0);
-  }
-
-  /**
-   * The primary call to action, decided by whether an attempt is actually
-   * left — never just "unlimited", except in demo mode. Only called once the
-   * real post-submission attempts count is known (or in demo mode, where
-   * there's nothing to wait on).
-   */
+  /** Pour Again (when an attempt remains) or the exhausted message, plus the leaderboard link. */
   private renderFooter(demo: boolean): void {
     const c = theme.colors;
     const y = WORLD_H - 160;
 
-    const remaining = demo ? Infinity : (nextToken() ? 1 : 0);
-    const canPlayAgain = demo || remaining > 0;
+    const canPlayAgain = demo || nextToken() !== null;
     let leaderboardY = y + 72;
 
     if (canPlayAgain) {
@@ -320,10 +254,6 @@ export class ResultsScene extends Phaser.Scene {
         })
         .setOrigin(0.5);
 
-      // Only demo mode gets a caption here — it carries information the
-      // button alone doesn't ("unlimited, never saved"). For a real player
-      // "POUR AGAIN" already says everything, and the extra line left no
-      // room for the leaderboard button below it without the two colliding.
       if (demo) {
         this.add
           .text(WORLD_W / 2, y + 56, 'demo mode — unlimited replays, never saved', {

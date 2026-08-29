@@ -1,23 +1,12 @@
 /**
- * Crypto and normalisation helpers shared by the register and submit-run
- * functions. Deno's native Web Crypto (`crypto.subtle`) — no npm dependency,
- * no key material ever leaves this process unencrypted.
+ * Crypto and normalisation helpers, using Deno's native Web Crypto only.
  *
- * Key separation: three distinct secrets, each doing one job, so that
- * compromising one (say, the token secret, which is exercised on every
- * request) doesn't also expose the ability to decrypt stored emails.
- *   EMAIL_HASH_SECRET — HMAC key for the dedupe hash (email_hmac, phone_hmac)
- *   EMAIL_ENC_KEY      — AES-256-GCM key for the actual ciphertext columns
- *   TOKEN_SECRET        — HMAC key that signs play-token capability strings
+ * Three separate secrets, one job each, so compromising one doesn't expose the
+ * others: EMAIL_HASH_SECRET (dedupe HMAC), EMAIL_ENC_KEY (AES-GCM field
+ * encryption), TOKEN_SECRET (play-token signing).
  */
 
 const te = new TextEncoder();
-const td = new TextDecoder();
-
-// ---------------------------------------------------------------------------
-// base64 / base64url — Deno has no Buffer by default; btoa/atob operate on
-// byte-valued strings, which is exactly what a Uint8Array round-trip gives us.
-// ---------------------------------------------------------------------------
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
@@ -41,11 +30,7 @@ function base64UrlToBytes(b64url: string): Uint8Array {
   return base64ToBytes(b64url.replace(/-/g, '+').replace(/_/g, '/') + pad);
 }
 
-// ---------------------------------------------------------------------------
-// Keys
-// ---------------------------------------------------------------------------
-
-export async function importHmacKey(base64Secret: string): Promise<CryptoKey> {
+export function importHmacKey(base64Secret: string): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     'raw',
     base64ToBytes(base64Secret),
@@ -55,23 +40,19 @@ export async function importHmacKey(base64Secret: string): Promise<CryptoKey> {
   );
 }
 
-export async function importAesKey(base64Secret: string): Promise<CryptoKey> {
+export function importAesKey(base64Secret: string): Promise<CryptoKey> {
   return crypto.subtle.importKey('raw', base64ToBytes(base64Secret), { name: 'AES-GCM' }, false, [
     'encrypt',
     'decrypt',
   ]);
 }
 
-// ---------------------------------------------------------------------------
-// HMAC — dedupe hashing and token signing both go through this
-// ---------------------------------------------------------------------------
-
 export async function hmacBase64Url(key: CryptoKey, data: string): Promise<string> {
   const sig = await crypto.subtle.sign('HMAC', key, te.encode(data));
   return bytesToBase64Url(new Uint8Array(sig));
 }
 
-/** Uses SubtleCrypto's verify, not a manual string compare — avoids a timing side-channel. */
+/** Constant-time HMAC verification via SubtleCrypto. */
 export async function hmacVerify(key: CryptoKey, data: string, sigBase64Url: string): Promise<boolean> {
   try {
     return await crypto.subtle.verify('HMAC', key, base64UrlToBytes(sigBase64Url), te.encode(data));
@@ -79,10 +60,6 @@ export async function hmacVerify(key: CryptoKey, data: string, sigBase64Url: str
     return false;
   }
 }
-
-// ---------------------------------------------------------------------------
-// AES-GCM field encryption
-// ---------------------------------------------------------------------------
 
 export interface EncryptedField {
   ciphertext: string;
@@ -95,31 +72,14 @@ export async function encryptField(key: CryptoKey, plaintext: string): Promise<E
   return { ciphertext: bytesToBase64(new Uint8Array(ct)), iv: bytesToBase64(iv) };
 }
 
-export async function decryptField(key: CryptoKey, field: EncryptedField): Promise<string> {
-  const pt = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: base64ToBytes(field.iv) },
-    key,
-    base64ToBytes(field.ciphertext),
-  );
-  return td.decode(pt);
-}
-
-// ---------------------------------------------------------------------------
-// Play-token capability strings — "<tokenId>.<hmac(tokenId)>"
-//
-// The signature isn't the access-control boundary (RLS already makes the
-// tokens table unreachable by the anon key) — it's defence in depth so that
-// the token itself, not just "any UUID that happens to be in the database",
-// is the credential. See artifacts/grill-me/PourLine-Grill-Me-4.md.
-// ---------------------------------------------------------------------------
-
+/** Signs a play-token capability string: "<tokenId>.<hmac(tokenId)>". */
 export async function signPlayToken(tokenId: string, key: CryptoKey): Promise<string> {
   return `${tokenId}.${await hmacBase64Url(key, tokenId)}`;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Returns the tokenId if the signature checks out and the shape is a real UUID, else null. */
+/** Returns the tokenId if the signature and UUID shape check out, else null. */
 export async function verifyPlayToken(token: string, key: CryptoKey): Promise<string | null> {
   if (typeof token !== 'string') return null;
   const dot = token.indexOf('.');
@@ -129,10 +89,6 @@ export async function verifyPlayToken(token: string, key: CryptoKey): Promise<st
   if (!UUID_RE.test(tokenId)) return null;
   return (await hmacVerify(key, tokenId, sig)) ? tokenId : null;
 }
-
-// ---------------------------------------------------------------------------
-// Normalisation — must exactly match artifacts/grill-me/PourLine-Grill-Me-4.md
-// ---------------------------------------------------------------------------
 
 /** Lowercase, trimmed, +tag stripped, Gmail/Googlemail dots stripped. */
 export function normalizeEmail(raw: string): string {
@@ -153,7 +109,7 @@ export function normalizeEmail(raw: string): string {
   return `${local}@${domain}`;
 }
 
-/** Best-effort E.164-ish normalisation. Assumes SA numbers for a bare leading 0. */
+/** Normalises a valid SA number to E.164. Assumes SA for a bare leading 0. */
 export function normalizePhone(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -164,36 +120,15 @@ export function normalizePhone(raw: string): string | null {
   return '+' + digits;
 }
 
-/**
- * True only for something that actually looks like a South African phone
- * number — not a formatting convenience like normalizePhone above, which
- * strips anything that isn't a digit or `+` and will happily "normalise" pure
- * garbage (letters, a pasted sentence, 30 digits) into a wrong-shaped string
- * instead of rejecting it. This is the real gate: call it on the raw input
- * before normalizePhone ever runs, and reject rather than silently clean up.
- *
- * The identical rule lives client-side in apps/game/src/validation.ts for
- * immediate form feedback — that copy is UX only. This one is the actual
- * enforcement, since a client check alone is one devtools call away from
- * meaningless (same reasoning as the attempt limit — see Grill-Me-4).
- */
+/** True only for a syntactically valid South African phone number. */
 export function isValidSaPhone(raw: string): boolean {
   const trimmed = raw.trim();
-  // An optional leading + (nowhere else), then only digits and common
-  // formatting characters — space, hyphen, parens, dot. A letter or a `+`
-  // anywhere but the front fails here, before digit-counting even starts —
-  // this is what stops "0821234567 call after 5pm" or a pasted sentence from
-  // being silently stripped down into something that passes.
   if (!/^\+?[\d\s\-().]+$/.test(trimmed)) return false;
   const digits = trimmed.replace(/[\s\-().]/g, '');
-  // Local: 0 + 9 more digits. International: +27 + 9 more digits. The digit
-  // right after that leading 0 (or after +27) is never itself 0 in the SA
-  // numbering plan, so "0021234567" — right length, not a real prefix — is
-  // correctly rejected, not just anything the wrong length.
   return /^0[1-9]\d{8}$/.test(digits) || /^\+27[1-9]\d{8}$/.test(digits);
 }
 
-/** "First L." — the only name-shaped thing ever exposed publicly. */
+/** "First L." — the only name-shaped value ever exposed publicly. */
 export function displayNameFrom(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return 'Player';

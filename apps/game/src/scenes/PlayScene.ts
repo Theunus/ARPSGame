@@ -27,15 +27,14 @@ export class PlayScene extends Phaser.Scene {
   private log!: InputEvent[];
   private cursor!: { i: number };
   private seed = 1;
-  /** Snapshot at run start so a mid-run localStorage change can't retag a run. */
   private demo = false;
-  /** The server-issued play token for this run, or null in demo mode. */
+  /** Server-issued play token for this run, or null in demo mode. */
   private token: string | null = null;
 
   private acc = 0;
-  /** Frames of deliberate freeze after a spill. Sells the mistake. */
+  /** Frames of deliberate freeze after a spill, to sell the mistake. */
   private hitch = 0;
-  /** Touches currently down. A second finger must not cancel the pour. */
+  /** Touches currently down, so a second finger doesn't cancel the pour. */
   private touches = 0;
 
   private g!: Phaser.GameObjects.Graphics;
@@ -48,27 +47,13 @@ export class PlayScene extends Phaser.Scene {
     super('Play');
   }
 
-  init(data: { seed?: number; demo?: boolean; token?: string } = {}): void {
+  init(data: { demo?: boolean } = {}): void {
     this.demo = data.demo ?? isDemoMode();
 
     if (this.demo) {
-      // Demo runs never touch the attempts system — a random seed, no token,
-      // never submitted. See ResultsScene, which skips submission entirely
-      // when demo is true.
-      this.seed = data.seed ?? Math.floor(Math.random() * 2 ** 31);
+      this.seed = Math.floor(Math.random() * 2 ** 31);
       this.token = null;
-    } else if (data.token) {
-      // Explicit hand-off (currently unused by any caller, but kept so a
-      // future flow — e.g. main.ts choosing a specific attempt — doesn't have
-      // to fight the fallback below).
-      this.seed = data.seed ?? 0;
-      this.token = data.token;
     } else {
-      // The normal path, including "Pour Again": look up whatever the next
-      // unused attempt actually is. main.ts only ever boots the game at all
-      // when this is non-null (see the #gate check there) — if it's ever null
-      // here regardless, ResultsScene's "no active attempt" branch is what
-      // catches it, not a crash.
       const t = nextToken();
       this.seed = t?.seed ?? 0;
       this.token = t?.token ?? null;
@@ -107,9 +92,6 @@ export class PlayScene extends Phaser.Scene {
       })
       .setOrigin(0, 0);
 
-    // Mix name as a wide-spaced eyebrow, echoing the letter-spaced ARPS tagline.
-    // Sits just above the chute funnel and below the combo row so the two never
-    // collide when a combo is running.
     this.mixText = this.add
       .text(WORLD_W / 2, CHUTE_Y - 86, '', {
         fontFamily: theme.fonts.body,
@@ -128,9 +110,6 @@ export class PlayScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
-    // Visible on every frame of a demo run, not just the results screen — a
-    // showcase run must never be mistaken for a real competitive entry by
-    // whoever is watching over the demoing staff member's shoulder.
     if (this.demo) {
       this.add
         .text(WORLD_W / 2, 8, 'DEMO MODE — SCORE NOT SAVED', {
@@ -145,8 +124,7 @@ export class PlayScene extends Phaser.Scene {
         .setOrigin(0.5, 0);
     }
 
-    // Multiple pointers, because people rest a second thumb on the screen and
-    // a naive pointerup handler would read that as a release.
+    // Track multiple pointers so a resting second thumb isn't read as a release.
     this.input.addPointer(2);
     this.input.on('pointerdown', () => {
       this.touches++;
@@ -163,9 +141,8 @@ export class PlayScene extends Phaser.Scene {
       this.setPour(false);
     });
 
-    // A phone that locks, or a notification that steals focus, takes the finger
-    // off the glass without ever firing pointerup. Without this the sim resumes
-    // still pouring and instantly spills a mould the player never touched.
+    // A phone lock or notification steals focus without firing pointerup;
+    // stop pouring so the sim doesn't spill a mould the player never touched.
     const onHide = () => {
       if (document.hidden) {
         this.touches = 0;
@@ -177,20 +154,13 @@ export class PlayScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange', onHide);
     });
 
-    // Desktop convenience while tuning. Never the primary input.
+    // Desktop tuning convenience, never the primary input.
     const space = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     space?.on('down', () => this.setPour(true));
     space?.on('up', () => this.setPour(false));
   }
 
-  /**
-   * Records the transition and lets the sim consume it on the next frame.
-   *
-   * The client never sets `pouring` directly — it appends to the same log it
-   * will later submit, and the sim reads it. That means the run the player sees
-   * is literally the run the server will replay, not a parallel implementation
-   * that happens to agree.
-   */
+  /** Records a pour transition into the input log the sim reads and the server replays. */
   private setPour(down: boolean): void {
     if (this.state.over) return;
     const last = this.log[this.log.length - 1];
@@ -230,11 +200,7 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  /**
-   * Dev-only: advance the simulation without waiting on requestAnimationFrame,
-   * so the game can be driven and screenshotted in a headless browser where the
-   * tab is backgrounded and rAF is throttled to a standstill.
-   */
+  /** Dev-only: advance the sim without rAF, for headless/automated driving. */
   debugAdvance(frames: number, pouring?: boolean): void {
     if (pouring !== undefined) this.setPour(pouring);
     for (let i = 0; i < frames && !this.state.over; i++) {
@@ -244,7 +210,7 @@ export class PlayScene extends Phaser.Scene {
     this.draw();
   }
 
-  /** Dev-only: a snapshot of what the sim thinks is happening. */
+  /** Dev-only: a snapshot of the sim state. */
   debugState(): Record<string, unknown> {
     const m = mouldUnderChute(this.state);
     return {
@@ -314,10 +280,6 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Rendering
-  // -------------------------------------------------------------------------
-
   private draw(): void {
     const s = this.state;
     const c = theme.colors;
@@ -346,8 +308,7 @@ export class PlayScene extends Phaser.Scene {
     const s = this.state;
     const c = theme.colors;
 
-    // Bands come straight from the sim, so what the player aims at is exactly
-    // what gets scored. There is no second copy of these numbers.
+    // Bands come from the sim, so the player aims at exactly what gets scored.
     const tol = toleranceFor(m.target, MIXES[s.mix].flow, s.frame);
     const brimUnits = m.target + tol.spillOver;
     const top = GROUND_Y - m.height;
@@ -356,15 +317,12 @@ export class PlayScene extends Phaser.Scene {
     this.g.fillStyle(c.bgAccent, 1);
     this.g.fillRect(m.x, top, m.width, m.height);
 
-    // Formwork walls sit proud of the mould, so the shape reads as a container.
+    // Formwork walls proud of the mould, so the shape reads as a container.
     this.g.fillStyle(c.formworkDim, 1);
     this.g.fillRect(m.x - 7, top - 4, 7, m.height + 4);
     this.g.fillRect(m.x + m.width, top - 4, 7, m.height + 4);
 
-    // The perfect band is the single most important thing on screen — it is the
-    // affordance that tells a stranger where to stop. It has to survive expo
-    // lighting and a phone on low brightness, so it is drawn as a filled zone
-    // with hard edges rather than a faint tint.
+    // The perfect band — a filled zone with hard edges so it survives bright light.
     if (!m.evaluated) {
       const bandLo = GROUND_Y - Math.max(m.target - tol.perfectUnder, 0) * u;
       const bandHi = GROUND_Y - (m.target + tol.perfectOver) * u;
@@ -380,7 +338,6 @@ export class PlayScene extends Phaser.Scene {
     if (fh > 0) {
       this.g.fillStyle(m.spilled ? c.danger : c.concrete, 1);
       this.g.fillRect(m.x, GROUND_Y - fh, m.width, fh);
-      // Wet surface, so a filling mould reads as moving rather than static.
       this.g.fillStyle(c.concreteWet, 1);
       this.g.fillRect(m.x, GROUND_Y - fh, m.width, 3);
     }
@@ -393,12 +350,7 @@ export class PlayScene extends Phaser.Scene {
     this.g.strokeRect(m.x, top, m.width, m.height);
   }
 
-  /**
-   * A puddle at the chute base that grows and reddens as ground-spillage builds
-   * toward a strike. This is the fairness half of the ground-spill rule: the
-   * player must be able to see the danger accumulating, not just get struck out
-   * of nowhere.
-   */
+  /** A puddle at the chute base that grows and reddens as ground-spillage nears a strike. */
   private drawGroundPuddle(): void {
     const s = this.state;
     if (s.groundSpill <= 0) return;
@@ -406,10 +358,6 @@ export class PlayScene extends Phaser.Scene {
 
     const t = Math.min(s.groundSpill / GROUND_SPILL_LIMIT, 1);
     const w = 34 + t * 150;
-    // formworkDim rather than concreteWet: on the light ARPS ground the wet-
-    // concrete tone is too close to the ground colour to read early — this
-    // needs to be visible from the first drop, not just once it's dangerous.
-    // Warns toward danger as it nears the limit.
     const color = t > 0.6 ? c.danger : c.formworkDim;
     this.g.fillStyle(color, 0.45 + t * 0.4);
     this.g.fillEllipse(CHUTE_X, GROUND_Y + 4, w, 18);
@@ -433,19 +381,12 @@ export class PlayScene extends Phaser.Scene {
     this.g.fillStyle(active ? c.accent : c.chuteMouth, 1);
     this.g.fillRect(CHUTE_X - 19, CHUTE_Y - 5, 38, 7);
 
-    // Guide line to the landing point. Without it the chute reads as floating
-    // and players struggle to connect the pour to the mould underneath.
+    // Guide line connecting the chute to its landing point.
     this.g.lineStyle(1, c.groundLine, 0.5);
     this.g.lineBetween(CHUTE_X, CHUTE_Y, CHUTE_X, GROUND_Y);
   }
 
-  /**
-   * The tail, made visible.
-   *
-   * While pouring, a full column. After release, the column's top descends over
-   * exactly `tail` frames — the same frames the sim will keep delivering for.
-   * If a player can't see why they overfilled, the mechanic reads as random.
-   */
+  /** The falling column — full while pouring, descending over `tail` frames after release. */
   private drawPour(): void {
     const s = this.state;
     const c = theme.colors;
@@ -461,16 +402,13 @@ export class PlayScene extends Phaser.Scene {
     }
     if (topY === null) return;
 
-    // The column lands on the concrete surface rather than punching through to
-    // the ground. Drawing it full height would cover the fill level — the one
-    // thing the player has to read to time the release.
+    // Land on the concrete surface, not the ground, so the fill level stays visible.
     const landingY = this.surfaceUnderChute();
     if (topY >= landingY) return;
 
     this.g.fillStyle(c.concreteWet, 0.95);
     this.g.fillRect(CHUTE_X - w / 2, topY, w, landingY - topY);
 
-    // Impact splash, so the landing point reads even on a nearly full mould.
     this.g.fillStyle(c.concreteWet, 0.5);
     this.g.fillRect(CHUTE_X - w / 2 - 9, landingY - 4, w + 18, 5);
   }

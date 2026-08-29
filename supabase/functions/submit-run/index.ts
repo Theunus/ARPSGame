@@ -1,24 +1,7 @@
 /**
- * POST /submit-run — the anti-cheat gate. See
- * artifacts/grill-me/PourLine-Grill-Me-4.md: "you do not need every score to
- * be honest, you need the winner to be honest." This is where that gets
- * enforced — the server re-simulates the player's own input log against the
- * seed *it* issued, using the exact same deterministic module the client
- * runs, and only that replayed score is ever eligible for the leaderboard.
- *
- * Request body:
- *   {
- *     token: string,          // "<tokenId>.<sig>" from /register
- *     inputLog: InputEvent[], // recorded press/release events
- *     claimedScore: number,
- *     durationFrames?: number,
- *     clientVersion?: string,
- *   }
- *
- * Response body (verified):
- *   { ok: true, verifiedScore: number, attemptsRemaining: number }
- * Response body (rejected — still burns the attempt, per design):
- *   { ok: false, reason: string, attemptsRemaining: number }
+ * POST /submit-run — the anti-cheat gate. Re-simulates the player's input log
+ * against the seed the server issued, using the same deterministic module the
+ * client runs, and records only a score that reproduces exactly.
  */
 
 import { simulate, validateInputLog } from '../../../packages/sim/src/simulate.ts';
@@ -70,8 +53,6 @@ Deno.serve(async (req) => {
   const structural = validateInputLog(inputLog);
   if (!structural.ok) return json({ error: `bad input log: ${structural.reason}` }, 400);
 
-  // --- authenticate the token ------------------------------------------------
-
   const tokenKey = await importHmacKey(env.tokenSecret());
   const tokenId = await verifyPlayToken(tokenString, tokenKey);
   if (!tokenId) return json({ error: 'invalid or forged token' }, 401);
@@ -94,15 +75,8 @@ Deno.serve(async (req) => {
     return json({ error: 'this attempt has expired' }, 409);
   }
 
-  // --- claim the token immediately, before doing any real work ---------------
-  //
-  // Marking it used first (rather than after replay) closes a race where two
-  // concurrent submissions against the same token — a retried request on flaky
-  // venue wifi is the realistic case, not an attacker — could otherwise both
-  // pass validation before either write lands. The UPDATE's `is('used_at',
-  // null)` guard means only the first request to reach this line actually
-  // claims it; the loser gets rows: [] back and is told the attempt is gone,
-  // exactly as if it had lost the race after full replay.
+  // Claim the token first, guarded so only the first of two concurrent
+  // submissions (a retried request) wins.
   const claim = await supabase
     .from('play_tokens')
     .update({ used_at: new Date().toISOString() })
@@ -115,10 +89,6 @@ Deno.serve(async (req) => {
     return json({ error: 'this attempt has already been submitted' }, 409);
   }
 
-  // --- replay it, exactly the way the client ran it ---------------------------
-  //
-  // Same module, same algorithm, same seed the client was issued — never the
-  // seed the client sends, only ever the one this token was created with.
   const result = simulate(token.seed, inputLog);
   const ok = result.score === claimedScore;
 

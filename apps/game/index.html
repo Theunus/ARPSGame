@@ -2,8 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <!-- viewport-fit and user-scalable=no matter here: this is a one-thumb game
-         played on a phone, and a stray pinch mid-run would cost someone a score. -->
+    <!-- No pinch-zoom: a stray pinch mid-run would cost a score. -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
@@ -37,18 +36,10 @@
         display: block;
       }
 
-      /* Shown instead of the game — never alongside it — when main.ts decides
-         this visit isn't allowed to play (no registration, or all 3 attempts
-         already used) and isn't staff/demo mode. Phaser is never constructed
-         in that case: no reason to pay for booting a canvas engine to show a
-         sentence and two buttons. Hidden by default; main.ts un-hides it. */
+      /* Shown by main.ts instead of the game when this device can't play. */
       #gate {
         display: none;
-        /* Fixed, not in normal flow — #game is a full-height sibling ahead of
-           it in the document, so without this #gate would be laid out
-           entirely below the viewport (pushed down by #game's own 100%
-           height) and clipped by body's overflow:hidden. This overlays
-           instead of stacking. */
+        /* Fixed so it overlays #game rather than stacking below it. */
         position: fixed;
         inset: 0;
         box-sizing: border-box;

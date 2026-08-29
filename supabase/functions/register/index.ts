@@ -1,34 +1,8 @@
 /**
- * POST /register — creates a player and issues their three play tokens, or
- * (if the email has already registered) returns whichever of those three are
- * still unused. This single endpoint is deliberately both "sign up" and
- * "resume" — a player who reloads the registration page, or opens the link on
- * a second device, gets their real remaining-attempts state back rather than
- * a fresh set of three.
- *
- * Request body:
- *   {
- *     fullName: string,
- *     email: string,
- *     phone?: string,
- *     consentCompetition: boolean,  // required, must be true
- *     consentMarketing: boolean,
- *     isAdult: boolean,             // required, must be true
- *     consentVersion: string,       // which wording they saw — Grill-Me-5
- *   }
- *
- * Response body:
- *   {
- *     playerId: string,
- *     displayName: string,
- *     attemptsTotal: 3,
- *     attemptsRemaining: number,
- *     tokens: [{ token: string, attemptNo: number, seed: number }],
- *   }
- *
- * `tokens` contains only attempts that are still usable — unused and
- * unexpired. An empty array with attemptsRemaining: 0 is not an error; it is
- * the correct response for someone who has already played their three.
+ * POST /register — creates a player and issues three play tokens, or (if the
+ * email already registered) returns whichever are still unused. Both sign-up
+ * and resume, so a reload or a second device gets the real remaining-attempts
+ * state rather than a fresh three.
  */
 
 import { ATTEMPTS_PER_PLAYER, TOKEN_TTL_HOURS, env } from '../_shared/env.ts';
@@ -54,7 +28,6 @@ interface RegisterBody {
   email?: unknown;
   phone?: unknown;
   consentCompetition?: unknown;
-  consentMarketing?: unknown;
   isAdult?: unknown;
   consentVersion?: unknown;
 }
@@ -73,8 +46,6 @@ interface TokenRow {
 }
 
 function randomSeed(): number {
-  // A 31-bit positive int — comfortably inside JS's safe-integer range and
-  // whatever numeric type the client and simulate() expect for a seed.
   return crypto.getRandomValues(new Uint32Array(1))[0]! & 0x7fffffff;
 }
 
@@ -98,18 +69,16 @@ Deno.serve(async (req) => {
   const rawEmail = typeof body.email === 'string' ? body.email.trim() : '';
   const rawPhone = typeof body.phone === 'string' ? body.phone.trim() : '';
   const consentCompetition = body.consentCompetition === true;
-  const consentMarketing = body.consentMarketing === true;
   const isAdult = body.isAdult === true;
   const consentVersion =
-    typeof body.consentVersion === 'string' && body.consentVersion ? body.consentVersion : CONSENT_VERSION_FALLBACK;
+    typeof body.consentVersion === 'string' && body.consentVersion
+      ? body.consentVersion
+      : CONSENT_VERSION_FALLBACK;
 
   if (!fullName) return json({ error: 'fullName is required' }, 400);
   if (!EMAIL_RE.test(rawEmail)) return json({ error: 'a valid email is required' }, 400);
   if (!consentCompetition) return json({ error: 'competition consent is required to enter' }, 400);
   if (!isAdult) return json({ error: 'entrants must confirm they are 18 or older' }, 400);
-  // Optional field, but not a free-for-all: reject rather than silently clean
-  // up garbage. Client-side validation.ts gives the same feedback earlier,
-  // but this is the check that actually matters — see isValidSaPhone's comment.
   if (rawPhone && !isValidSaPhone(rawPhone)) {
     return json({ error: 'enter a valid South African phone number, e.g. 082 123 4567' }, 400);
   }
@@ -121,8 +90,7 @@ Deno.serve(async (req) => {
 
   const emailHmac = await hmacBase64Url(hashKey, normalizeEmail(rawEmail));
 
-  // --- find or create the player -------------------------------------------
-
+  // Find or create the player.
   let player: PlayerRow | null = null;
   {
     const { data, error } = await supabase
@@ -152,7 +120,6 @@ Deno.serve(async (req) => {
         phone_ciphertext: phoneEnc?.ciphertext ?? null,
         phone_iv: phoneEnc?.iv ?? null,
         consent_competition: true,
-        consent_marketing: consentMarketing,
         consent_version: consentVersion,
         is_adult: true,
       })
@@ -160,10 +127,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (error) {
-      // Unique-violation race: someone else's request won between our lookup
-      // and our insert (a double-tap on bad venue wifi is exactly the
-      // scenario this project designs around — see Grill-Me-6). Re-fetch
-      // rather than fail the request.
+      // Lost a unique-violation race (concurrent double-tap) — re-fetch instead of failing.
       if (error.code === '23505') {
         const retry = await supabase
           .from('players')
@@ -180,8 +144,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // --- find or create the three tokens -------------------------------------
-
+  // Find or create the three tokens.
   let tokenRows: TokenRow[];
   {
     const { data, error } = await supabase
@@ -223,38 +186,17 @@ Deno.serve(async (req) => {
     }
   }
 
-  // Unused tokens past their expiry are refreshed rather than left dead —
-  // the TTL is a safety net against a stale token being replayed long after
-  // the fact, not a trap that should cost someone a real attempt because
-  // venue wifi made them late. Extending expires_at doesn't touch anything
-  // the signature covers, so the token string a player already has stays valid.
-  const now = Date.now();
-  const usable: TokenRow[] = [];
-  for (const t of tokenRows) {
-    if (t.used_at) continue;
-    if (new Date(t.expires_at).getTime() < now) {
-      const { data, error } = await supabase
-        .from('play_tokens')
-        .update({ expires_at: freshExpiry() })
-        .eq('id', t.id)
-        .select('id, attempt_no, seed, used_at, expires_at')
-        .single();
-      if (!error && data) usable.push(data as TokenRow);
-    } else {
-      usable.push(t);
-    }
-  }
-
   const tokens = await Promise.all(
-    usable.map(async (t) => ({
-      token: await signPlayToken(t.id, tokenKey),
-      attemptNo: t.attempt_no,
-      seed: t.seed,
-    })),
+    tokenRows
+      .filter((t) => !t.used_at)
+      .map(async (t) => ({
+        token: await signPlayToken(t.id, tokenKey),
+        attemptNo: t.attempt_no,
+        seed: t.seed,
+      })),
   );
 
   return json({
-    playerId: player.id,
     displayName: player.display_name,
     attemptsTotal: ATTEMPTS_PER_PLAYER,
     attemptsRemaining: tokens.length,

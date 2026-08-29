@@ -1,9 +1,6 @@
 /**
- * Shared types for the Pour Line simulation.
- *
- * Deliberately no `enum` anywhere in this package — Node's native type stripping
- * cannot handle enums, and the sim must run unmodified under Node, Deno and the
- * browser. Const objects plus union types give the same ergonomics.
+ * Shared types for the Pour Line simulation. No `enum` — Node's type stripping
+ * can't handle it, and the sim must run under Node, Deno and the browser alike.
  */
 
 export type InputEventType = 'down' | 'up';
@@ -26,7 +23,7 @@ export type PourOutcome = 'perfect' | 'good' | 'underfill' | 'miss' | 'spill';
 
 export interface MouldSpec {
   kind: MouldKind;
-  /** World-space width in px. Together with scroll speed this sets the dwell time. */
+  /** World-space width in px, which sets the dwell time. */
   width: number;
   height: number;
   /** Fill units required to reach the target line. */
@@ -34,11 +31,7 @@ export interface MouldSpec {
   basePoints: number;
 }
 
-/**
- * The judging thresholds in force at a given moment, in fill units.
- * Derived from ramp progress, so they tighten as the run goes on.
- * The renderer draws its bands from exactly these numbers.
- */
+/** Judging thresholds in fill units, tightening as the run goes on. */
 export interface Tolerance {
   /** Fill above target at which concrete goes over the brim. */
   spillOver: number;
@@ -54,12 +47,9 @@ export interface MixSpec {
   kind: MixKind;
   /** Fill units emitted per frame while pouring. */
   flow: number;
-  /**
-   * Frames between leaving the chute and landing in the mould.
-   * This is the tail — the whole skill ceiling of the game lives here.
-   */
+  /** Frames between leaving the chute and landing — the tail. */
   tail: number;
-  /** Display label. Replaced with real ARPS product names via the theme layer. */
+  /** Placeholder display label. */
   label: string;
 }
 
@@ -100,13 +90,9 @@ export interface SimState {
   maxCombo: number;
   mouldsCompleted: number;
   perfects: number;
-  /** Fill units poured onto the ground with no mould under the chute (lifetime). */
+  /** Lifetime fill units poured onto the ground. */
   wasted: number;
-  /**
-   * Fill units of the *current* run of ground-spillage — concrete landing with
-   * no mould under the chute. Resets when concrete next lands in a mould, and
-   * when it crosses GROUND_SPILL_LIMIT it costs a strike. Drives the puddle.
-   */
+  /** Current unbroken run of ground-spillage; a strike when it crosses the limit. */
   groundSpill: number;
   over: boolean;
 
@@ -120,9 +106,9 @@ export interface SimState {
   spawnIndex: number;
 
   mix: MixKind;
-  /** Queued mix change, applied once the chute is idle so a live pour is never disturbed. */
+  /** Queued mix change, applied once the chute is idle. */
   pendingMix: MixKind | null;
-  /** Fill units currently between the chute and the ground. Renderer uses this. */
+  /** Fill units currently between the chute and the ground. */
   inFlight: number;
 
   /** Ring buffer: units due to land on frame `(index)` modulo its length. */
@@ -131,7 +117,7 @@ export interface SimState {
 
   rngState: number;
 
-  /** Cleared at the start of every step. Read it after stepping. */
+  /** Events from the most recent step; cleared at the start of each step. */
   events: SimEvent[];
 }
 

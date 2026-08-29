@@ -1,8 +1,4 @@
-/**
- * CORS and JSON response helpers. Every function in this project is called
- * directly from the browser (no server-side proxy), so every response needs
- * these headers, including on the OPTIONS preflight.
- */
+/** CORS and JSON response helpers for functions called directly from the browser. */
 
 export const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',

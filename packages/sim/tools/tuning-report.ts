@@ -1,17 +1,7 @@
 /**
- * Tuning harness. Run with:  npm run tune --workspace=@pourline/sim
- *
- * Plays synthetic players of varying accuracy across many seeds and reports the
- * resulting score and run-length distributions. This is a sighting shot, not a
- * substitute for real thumbs — but it catches the things playtesting is too slow
- * to catch, like a difficulty ramp that makes a mould literally unfillable.
- *
- * Targets, from artifacts/grill-me/PourLine-Grill-Me-2.md:
- *   - median run 35-45s
- *   - scores in the thousands, well spread so ties at the top are rare
- *   - speed climbs forever (Piano Tiles-style), so nothing here should show a
- *     hard plateau in run length for the top tiers — see the wall table below
- *     for what eventually ends even a flawless run
+ * Tuning harness — `npm run tune --workspace=@pourline/sim`. Plays synthetic
+ * players across many seeds and reports score and run-length distributions,
+ * plus the "wall" where speed eventually makes each mould/mix unfillable.
  */
 
 import {

@@ -1,20 +1,5 @@
-/**
- * Talks to the two Edge Functions in supabase/functions/. No supabase-js
- * dependency here — these are plain POSTs, which keeps the game bundle
- * small and means the exact same code path works whether the backend is the
- * local Docker stack or the real deployed project; only the URL/key differ.
- */
 import type { InputEvent } from '@pourline/sim';
-
-// Supabase's local dev stack always uses this fixed demo anon key — it is
-// documented as public and is meaningless against any real project, so it is
-// not a secret and is safe to commit as the local-dev default. Production
-// reads the real project's anon key from the build environment.
-const LOCAL_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
-
-const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL ?? 'http://127.0.0.1:54321/functions/v1';
-const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? LOCAL_ANON_KEY;
+import { ANON_KEY, FUNCTIONS_URL } from './supabase.ts';
 
 export interface IssuedToken {
   token: string;
@@ -27,13 +12,11 @@ export interface RegisterRequest {
   email: string;
   phone?: string;
   consentCompetition: boolean;
-  consentMarketing: boolean;
   isAdult: boolean;
   consentVersion: string;
 }
 
 export interface RegisterResponse {
-  playerId: string;
   displayName: string;
   attemptsTotal: number;
   attemptsRemaining: number;
@@ -56,6 +39,7 @@ export interface SubmitRunResponse {
   error?: string;
 }
 
+/** A failed API call. status 0 means the request never reached the server. */
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -78,9 +62,6 @@ async function callFunction<T>(name: string, body: unknown): Promise<T> {
       body: JSON.stringify(body),
     });
   } catch (err) {
-    // Network failure — the offline-tolerant queue this deserves (Grill-Me-6)
-    // isn't built yet; for now this surfaces as a clear, retryable error
-    // rather than an unhandled rejection.
     throw new ApiError(`network error contacting ${name}: ${(err as Error).message}`, 0);
   }
 

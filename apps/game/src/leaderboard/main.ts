@@ -2,20 +2,6 @@ import { applyBrandText, applyThemeVars } from '../theme/cssVars.ts';
 import { fetchLeaderboard } from './data.ts';
 import type { LeaderboardRow } from './types.ts';
 
-/**
- * Big-screen leaderboard — apps/game/leaderboard.html.
- *
- * A plain data table, not a Phaser scene: this is meant to run unattended on
- * a laptop driving a TV at the stand (see artifacts/grill-me/PourLine-Grill-Me-6.md),
- * so it needs to be a normal web page a browser can sit on for hours, not a
- * game loop. No pointer device is expected on that laptop, so unlike the
- * phone game there is deliberately no hover/interaction layer here.
- *
- * Currently reads sample data from ./data.ts — see the comment there for
- * exactly what changes when the real backend lands. Nothing in this file is
- * backend-specific; it only knows about the LeaderboardRow shape.
- */
-
 const REFRESH_MS = 15_000;
 const MAX_ROWS = 50;
 
@@ -26,15 +12,10 @@ function byId<T extends HTMLElement>(id: string): T {
 }
 
 const rowsEl = byId<HTMLTableSectionElement>('rows');
-const updatedTextEl = byId<HTMLElement>('updated-text');
 const countTextEl = byId<HTMLElement>('count-text');
 
-let lastGoodAt: number | null = null;
 let previousByKey = new Map<string, LeaderboardRow>();
 
-// A real backend will key this by player id. Display name is good enough for
-// sample data and degrades harmlessly (a missed highlight, nothing worse) if
-// two mock players ever share a name.
 function rowKey(row: LeaderboardRow): string {
   return row.displayName;
 }
@@ -50,7 +31,7 @@ function badgeClass(rank: number): '' | 'gold' | 'silver' | 'bronze' {
   return '';
 }
 
-/** Escapes free-text before it goes into innerHTML. Only displayName needs this. */
+/** Escapes free text before it goes into innerHTML. */
 function escapeHtml(s: string): string {
   const div = document.createElement('div');
   div.textContent = s;
@@ -94,13 +75,9 @@ function renderRows(rows: LeaderboardRow[], animateEntrance: boolean): void {
     if (changed) tr.classList.add('changed');
 
     if (animateEntrance) {
-      // Staggered, capped so a long board doesn't take forever to finish
-      // appearing — past ~20 rows every row after that comes in together.
       tr.style.animationDelay = `${Math.min(i, 20) * 35}ms`;
     } else {
-      // Not first paint: only rows flagged `changed` above should draw the
-      // eye. Replaying the entrance animation for the whole board every
-      // refresh would make genuine changes harder to notice, not easier.
+      // Only changed rows animate on a refresh, so a real shakeup draws the eye.
       tr.style.animation = changed ? '' : 'none';
       tr.style.opacity = '1';
     }
@@ -123,26 +100,13 @@ function renderRows(rows: LeaderboardRow[], animateEntrance: boolean): void {
   previousByKey = new Map(rows.map((r) => [rowKey(r), r]));
 }
 
-function updateStatusText(): void {
-  if (lastGoodAt === null) return;
-  const secs = Math.round((Date.now() - lastGoodAt) / 1000);
-  updatedTextEl.textContent = secs < 2 ? 'Updated just now' : `Updated ${secs}s ago`;
-}
-
 async function refresh(isFirst: boolean): Promise<void> {
   if (isFirst) renderSkeleton();
-
   try {
     const rows = await fetchLeaderboard(MAX_ROWS);
     renderRows(rows, isFirst);
     countTextEl.textContent = `${rows.length} on the board`;
-    lastGoodAt = Date.now();
-    updateStatusText();
   } catch (err) {
-    // A leaderboard that silently stops updating is worse than one that says
-    // so — this is the one thing staff at the stand can actually notice and
-    // act on (refresh the laptop) without needing the admin page.
-    updatedTextEl.textContent = 'Refresh failed — retrying…';
     console.error('leaderboard refresh failed', err);
   }
 }
@@ -156,4 +120,3 @@ byId<HTMLButtonElement>('play-nav').addEventListener('click', () => {
 
 void refresh(true);
 setInterval(() => void refresh(false), REFRESH_MS);
-setInterval(updateStatusText, 1000);
