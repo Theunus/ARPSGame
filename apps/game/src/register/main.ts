@@ -10,6 +10,7 @@
 import { ApiError, register } from '../api.ts';
 import { clearSession, loadSession, nextToken, saveSession } from '../session.ts';
 import { applyBrandText, applyThemeVars } from '../theme/cssVars.ts';
+import { isValidSaPhone } from '../validation.ts';
 
 const CONSENT_VERSION = 'arps-v1';
 
@@ -70,10 +71,14 @@ form.addEventListener('submit', async (e) => {
   const email = byId<HTMLInputElement>('email').value.trim();
   const phone = byId<HTMLInputElement>('phone').value.trim();
   const consentCompetition = byId<HTMLInputElement>('consentCompetition').checked;
-  const consentMarketing = byId<HTMLInputElement>('consentMarketing').checked;
 
   if (!consentCompetition) {
-    showError('Please tick the first box to confirm you agree and are 18 or older.');
+    showError('Please tick the box to confirm you agree and are 18 or older.');
+    return;
+  }
+
+  if (phone && !isValidSaPhone(phone)) {
+    showError('Enter a valid South African phone number, e.g. 082 123 4567 — or leave it blank.');
     return;
   }
 
@@ -84,7 +89,9 @@ form.addEventListener('submit', async (e) => {
       email,
       phone: phone || undefined,
       consentCompetition,
-      consentMarketing,
+      // Competition-only by decision — no separate marketing opt-in is
+      // collected, so there is nothing to send but false. See Grill-Me-5.
+      consentMarketing: false,
       isAdult: consentCompetition, // the single checkbox covers both, per the form copy
       consentVersion: CONSENT_VERSION,
     });

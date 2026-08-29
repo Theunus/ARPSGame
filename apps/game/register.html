@@ -122,10 +122,6 @@
         line-height: 1.4;
       }
 
-      .check-row.optional label {
-        color: var(--text-dim);
-      }
-
       button {
         display: block;
         width: 100%;
@@ -237,21 +233,21 @@
           <div class="hint">We'll only use this to contact you if you win.</div>
 
           <label for="phone">Phone number <span style="font-weight: 400">(optional)</span></label>
-          <input type="tel" id="phone" name="phone" autocomplete="tel" />
+          <input
+            type="tel"
+            id="phone"
+            name="phone"
+            autocomplete="tel"
+            inputmode="tel"
+            maxlength="20"
+            placeholder="082 123 4567"
+          />
 
           <div class="check-row">
             <input type="checkbox" id="consentCompetition" required />
             <label for="consentCompetition">
               I agree that ARPS may process my details to run this competition, verify my
               entries and contact me if I win, and I confirm I am 18 or older.
-            </label>
-          </div>
-
-          <div class="check-row optional">
-            <input type="checkbox" id="consentMarketing" />
-            <label for="consentMarketing">
-              I'd also like ARPS to contact me about their products and services. I can
-              unsubscribe at any time.
             </label>
           </div>
 

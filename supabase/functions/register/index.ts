@@ -38,6 +38,7 @@ import {
   hmacBase64Url,
   importAesKey,
   importHmacKey,
+  isValidSaPhone,
   normalizeEmail,
   normalizePhone,
   signPlayToken,
@@ -106,6 +107,12 @@ Deno.serve(async (req) => {
   if (!EMAIL_RE.test(rawEmail)) return json({ error: 'a valid email is required' }, 400);
   if (!consentCompetition) return json({ error: 'competition consent is required to enter' }, 400);
   if (!isAdult) return json({ error: 'entrants must confirm they are 18 or older' }, 400);
+  // Optional field, but not a free-for-all: reject rather than silently clean
+  // up garbage. Client-side validation.ts gives the same feedback earlier,
+  // but this is the check that actually matters — see isValidSaPhone's comment.
+  if (rawPhone && !isValidSaPhone(rawPhone)) {
+    return json({ error: 'enter a valid South African phone number, e.g. 082 123 4567' }, 400);
+  }
 
   const supabase = adminClient();
   const hashKey = await importHmacKey(env.emailHashSecret());

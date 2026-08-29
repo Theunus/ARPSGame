@@ -19,7 +19,10 @@ The four things with the longest lead times. Everything else can follow.
 1. 🔴 **The event date, times and venue** — sets the competition window and, more importantly,
    reveals the printed-materials deadline, which is usually the earliest hard date in the
    whole project.
-2. 🔴 **Decision on marketing consent** (item 2.2). This one cannot be fixed after the event.
+2. 🟠 **Confirm the marketing-consent default** (item 2.2) — built as competition-only, the
+   safest privacy position, but that's a dev default standing in for a real commercial call
+   ARPS should explicitly sign off on. It cannot be fixed after the event if it turns out
+   wrong.
 3. 🔴 **Who writes the competition T&Cs, and by when** (item 1.6). They must exist before the
    QR code goes to print.
 4. 🟠 **DNS access or a DNS contact** (item 4.1). Getting a CNAME added at a corporate can
@@ -139,18 +142,19 @@ which I would strongly advise against building for a one-day event — much simp
   direct access to the admin. Emailing a spreadsheet of 500 people's contact details is
   precisely the kind of thing POPIA exists to discourage.
 
-### 2.2 🔴 Marketing consent: yes or no
+### 2.2 ✅ Marketing consent: decided — competition-only
 
-The commercial decision underneath the legal one, and it must be made **before the event**.
+**Decided: no.** The registration form collects only the single competition-entry consent —
+there is no second checkbox, and `consentMarketing` is always sent `false`. The data is used
+solely to run the competition and contact winners; ARPS gets a winner and nothing else.
 
-- **Yes** → box 2 appears, and ARPS can market to everyone who ticks it.
-- **No** → the data is used solely to run the competition and contact winners. ARPS gets a
-  winner and nothing else.
-
-Under POPIA s69, electronic direct marketing to non-customers requires prior opt-in consent.
-If that consent is not captured on the day, **it cannot be obtained retroactively** — those
-leads are permanently unusable for marketing. Make sure whoever signs off understands this
-before the event rather than after it.
+This is the cleanest possible POPIA position, and it is a real trade-off worth confirming
+ARPS actually wants: under POPIA s69, electronic direct marketing to non-customers requires
+prior opt-in consent, and **that consent cannot be obtained retroactively.** If ARPS's sales
+or marketing team expected to follow up with entrants afterward, that door is closed the
+moment this ships as built — reopening it means asking everyone again, not flipping a switch.
+If that turns out to be the wrong call, say so before the event and the marketing checkbox
+(the design already exists — Grill-Me-5) is a small, well-understood addition, not a rebuild.
 
 ### 2.3 🟡 Unsubscribe mechanism
 
@@ -307,7 +311,7 @@ the T&Cs promise about notification.
 | 1.10 | Breach contact agreed | 🟡 | ☐ |
 | 1.11 | Age policy confirmed | 🟡 | ☐ |
 | 2.1 | Lead recipients + secure channel | 🔴 | ☐ |
-| 2.2 | Marketing consent decision | 🔴 | ☐ |
+| 2.2 | Marketing consent decision | 🟠 | ☑ built competition-only — confirm with ARPS |
 | 2.3 | Unsubscribe mechanism | 🟡 | ☐ |
 | 3.1 | Logo files | 🟠 | ☐ |
 | 3.2 | Brand colours | ✅ | ☑ received, applied |

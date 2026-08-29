@@ -68,13 +68,22 @@ Design rules, enforced in code:
 - Entry is **not conditional** on box 2. Ticking it grants no advantage, no bonus attempt,
   no in-game perk — bundling consent to a reward puts it on shakier ground.
 - The two are visually distinct, not stacked to look like one control.
-- Box 2 is **feature-flagged**, so if the client decides on competition-only it disappears
-  without a code change.
 
 Both stored as separate booleans, alongside `consent_version` and `consented_at` — so you
 can always prove exactly which wording a specific person agreed to.
 
 Bundling these into one checkbox is the classic POPIA failure and is not being built.
+
+**Built, with a decision made:** competition-only. `register.html` ships **box 1 only** —
+`consentMarketing` is always sent `false`, and there is no marketing checkbox in the form at
+all. This landed as a straight decision rather than the feature flag originally sketched
+above — simpler, and reversing it is still a small, well-understood change: box 2's exact
+copy already exists in this document, the `players.consent_marketing` column already exists
+in the schema and already defaults correctly, and `register.html`'s existing `.check-row`
+markup is a direct template for adding it back. See
+[CLIENT-REQUIREMENTS.md item 2.2](../../CLIENT-REQUIREMENTS.md) — this default needs an
+explicit sign-off from ARPS, not just inheriting a developer's privacy-first instinct,
+**before** the event, since s69 consent cannot be captured retroactively once it's run.
 
 ## Data minimisation
 
@@ -207,7 +216,9 @@ the client's advisor confirm the split.
 
 ## Open items
 
-- Client's decision on marketing consent — box 2 on or off.
+- ~~Client's decision on marketing consent — box 2 on or off.~~ Built as off
+  (competition-only) by default — needs ARPS's explicit sign-off, not just inheriting that
+  default, before the event.
 - Client's Information Officer name, contact and registration status.
 - Signed s21 Operator agreement.
 - Who writes the CPA T&Cs, and by when. **They are needed before the QR code goes to print.**

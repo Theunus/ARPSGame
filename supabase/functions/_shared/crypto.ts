@@ -164,6 +164,35 @@ export function normalizePhone(raw: string): string | null {
   return '+' + digits;
 }
 
+/**
+ * True only for something that actually looks like a South African phone
+ * number — not a formatting convenience like normalizePhone above, which
+ * strips anything that isn't a digit or `+` and will happily "normalise" pure
+ * garbage (letters, a pasted sentence, 30 digits) into a wrong-shaped string
+ * instead of rejecting it. This is the real gate: call it on the raw input
+ * before normalizePhone ever runs, and reject rather than silently clean up.
+ *
+ * The identical rule lives client-side in apps/game/src/validation.ts for
+ * immediate form feedback — that copy is UX only. This one is the actual
+ * enforcement, since a client check alone is one devtools call away from
+ * meaningless (same reasoning as the attempt limit — see Grill-Me-4).
+ */
+export function isValidSaPhone(raw: string): boolean {
+  const trimmed = raw.trim();
+  // An optional leading + (nowhere else), then only digits and common
+  // formatting characters — space, hyphen, parens, dot. A letter or a `+`
+  // anywhere but the front fails here, before digit-counting even starts —
+  // this is what stops "0821234567 call after 5pm" or a pasted sentence from
+  // being silently stripped down into something that passes.
+  if (!/^\+?[\d\s\-().]+$/.test(trimmed)) return false;
+  const digits = trimmed.replace(/[\s\-().]/g, '');
+  // Local: 0 + 9 more digits. International: +27 + 9 more digits. The digit
+  // right after that leading 0 (or after +27) is never itself 0 in the SA
+  // numbering plan, so "0021234567" — right length, not a real prefix — is
+  // correctly rejected, not just anything the wrong length.
+  return /^0[1-9]\d{8}$/.test(digits) || /^\+27[1-9]\d{8}$/.test(digits);
+}
+
 /** "First L." — the only name-shaped thing ever exposed publicly. */
 export function displayNameFrom(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
